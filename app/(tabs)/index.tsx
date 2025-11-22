@@ -1,5 +1,2 @@
-import { Redirect } from "expo-router";
-
-export default function Index() {
-  return <Redirect href="/(auth)/login" />;
-}
+// Tabs route - Index (redirects to home)
+export { default } from "../../src/screens/main/index";
