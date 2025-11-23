@@ -426,17 +426,6 @@ function HomeScreen() {
         </View>
       )}
 
-      {/* Join Group Modal */}
-      <InputModal
-        visible={showJoinModal}
-        title="Join Group"
-        placeholder="Enter group code"
-        onCancel={handleJoinModalCancel}
-        onSubmit={handleJoinModalSubmit}
-        submitText="Join"
-        cancelText="Cancel"
-      />
-
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <TouchableOpacity
