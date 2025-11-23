@@ -55,16 +55,40 @@ export default function Login() {
   };
 
   const login = async () => {
-    if (!validateForm()) return;
+    console.log("🔐 Login attempt started");
 
+    if (!validateForm()) {
+      console.log("❌ Form validation failed");
+      return;
+    }
+
+    console.log("✅ Form validation passed");
     setLoading(true);
     setGeneralError(""); // Clear previous errors
 
+    // Add timeout protection
+    const loginTimeout = setTimeout(() => {
+      console.error("⏰ Login timeout after 30 seconds");
+      setLoading(false);
+      setGeneralError(
+        "Login timed out. Please check your internet connection and try again."
+      );
+    }, 30000); // 30 second timeout
+
     try {
+      console.log("🔄 Attempting Firebase login...");
       const user = await loginUser(email.trim(), password);
+      console.log("✅ Firebase login successful", {
+        uid: user.uid,
+        email: user.email,
+      });
+
+      // Clear timeout on success
+      clearTimeout(loginTimeout);
 
       // Check if email is verified
       if (!user.emailVerified) {
+        console.log("⚠️ Email not verified");
         setGeneralError("Please verify your email address before continuing.");
         Alert.alert(
           "Email Not Verified",
@@ -72,23 +96,34 @@ export default function Login() {
           [
             {
               text: "Verify Now",
-              onPress: () => router.replace("/(auth)/verify-email"),
+              onPress: () => {
+                console.log("📧 Redirecting to verify email");
+                router.replace("/(auth)/verify-email");
+              },
             },
             {
               text: "Cancel",
               style: "cancel",
+              onPress: () =>
+                console.log("❌ User cancelled email verification"),
             },
           ]
         );
+        setLoading(false); // Fix: Set loading to false before return
         return;
       }
 
-      console.log("🎉 Login successful, navigating to tabs");
-      router.replace("/(tabs)");
+      console.log("🎉 Login successful, navigating to home");
+      router.replace("/(tabs)/home");
     } catch (err: any) {
-      setGeneralError(err.message);
-      console.error("Login error:", err.message);
+      console.error("❌ Login error:", err);
+      clearTimeout(loginTimeout);
+      const errorMessage = err.message || "Login failed. Please try again.";
+      setGeneralError(errorMessage);
+      console.error("Login error details:", err);
     } finally {
+      clearTimeout(loginTimeout);
+      console.log("🔄 Setting loading to false");
       setLoading(false);
     }
   };
