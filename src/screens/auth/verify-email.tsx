@@ -73,7 +73,7 @@ export default function VerifyEmail() {
       await reload(auth.currentUser);
 
       if (auth.currentUser.emailVerified) {
-        router.replace("/(tabs)/home");
+        router.replace("/(tabs)");
       } else {
         Alert.alert(
           "Not Verified",

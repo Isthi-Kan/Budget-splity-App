@@ -1,2 +1,5 @@
-// Tabs route - Index (redirects to home)
-export { default } from "../../src/screens/main/index";
+import { Redirect } from "expo-router";
+
+export default function TabsIndex() {
+  return <Redirect href="/(tabs)/home" />;
+}
