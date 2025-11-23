@@ -1,13 +1,13 @@
 import {
-  createUserWithEmailAndPassword,
-  reload,
-  sendEmailVerification,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile
+    createUserWithEmailAndPassword,
+    reload,
+    sendEmailVerification,
+    signInWithEmailAndPassword,
+    signOut,
+    updateProfile
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "./config";
+import { auth } from "./config";
+import { createUserDocument } from "./users";
 
 export const signUpUser = async (email: string, password: string, displayName?: string) => {
   try {
@@ -21,14 +21,7 @@ export const signUpUser = async (email: string, password: string, displayName?: 
     }
     
     // Create user document in Firestore
-    await setDoc(doc(db, "users", user.uid), {
-      uid: user.uid,
-      email: user.email,
-      displayName: displayName || "",
-      emailVerified: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
+    await createUserDocument(user.uid, user.email!, displayName);
     
     // Send email verification - make this blocking to ensure it's sent
     try {
@@ -46,10 +39,29 @@ export const signUpUser = async (email: string, password: string, displayName?: 
 };
 
 export const loginUser = async (email: string, password: string) => {
+  console.log("🔑 Firebase loginUser called", { email });
+  
   try {
+    console.log("🔄 Calling signInWithEmailAndPassword...");
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log("✅ signInWithEmailAndPassword successful");
+    
+    console.log("👤 User object:", {
+      uid: userCredential.user.uid,
+      email: userCredential.user.email,
+      emailVerified: userCredential.user.emailVerified,
+      displayName: userCredential.user.displayName
+    });
+    
+    // Temporarily skip updateLastSeen to see if it's causing the hang
+    console.log("⚠️ Skipping updateLastSeen for debugging");
+    // await updateLastSeen(userCredential.user.uid);
+    
     return userCredential.user;
   } catch (error: any) {
+    console.error("❌ Firebase auth error:", error);
+    console.error("Error code:", error.code);
+    console.error("Error message:", error.message);
     throw new Error(getAuthErrorMessage(error.code));
   }
 };
