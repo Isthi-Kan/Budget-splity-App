@@ -85,16 +85,12 @@ export default function AddExpense() {
       // Add expense to Firebase
       await addExpense(groupId, expenseData);
 
-      Alert.alert(
-        "Success",
-        "Expense added successfully!",
-        [
-          {
-            text: "OK",
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      Alert.alert("Success", "Expense added successfully!", [
+        {
+          text: "OK",
+          onPress: () => router.back(),
+        },
+      ]);
     } catch (error: any) {
       console.error("Error adding expense:", error);
       Alert.alert("Error", error.message || "Failed to add expense");
