@@ -120,7 +120,7 @@ export default function Signup() {
       }
 
       setLoading(false);
-      router.push("/(auth)/verify-email");
+      router.replace("/(auth)/verify-email");
     } catch (err: any) {
       console.error("Signup error:", err.message);
       setGeneralError(err.message);

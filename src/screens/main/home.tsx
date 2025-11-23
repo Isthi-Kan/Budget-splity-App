@@ -1,5 +1,20 @@
 import { useRouter } from "expo-router";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Alert,
+  BackHandler,
+  Dimensions,
+  FlatList,
+  Platform,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Svg, { Path } from "react-native-svg";
+import InputModal from "../../components/InputModal";
 import { logoutUser } from "../../services/firebase/auth";
 import { auth } from "../../services/firebase/config";
 
@@ -7,7 +22,130 @@ export default function Home() {
   const router = useRouter();
   const user = auth.currentUser;
 
-  const handleLogout = async () => {
+  // Firebase authentication state listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log(
+        "🔐 Auth state changed:",
+        user ? "User logged in" : "User logged out"
+      );
+      setUser(user);
+      setAuthLoading(false);
+
+      // If user is not authenticated, redirect to login
+      if (!user) {
+        router.replace("/(auth)/login");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  // Handle Android back button to prevent going back to login
+  useEffect(() => {
+    const handleBackPress = () => {
+      // Prevent default back behavior on home screen
+      // User should use logout instead
+      return true; // This prevents the default back action
+    };
+
+    if (Platform.OS === "android") {
+      const backHandler = BackHandler.addEventListener(
+        "hardwareBackPress",
+        handleBackPress
+      );
+      return () => backHandler.remove();
+    }
+  }, []);
+
+  const loadGroups = async (forceRefresh = false) => {
+    if (!user) {
+      console.log("⚠️ No user found, skipping group load");
+      setLoading(false);
+      return;
+    }
+
+    console.log("📊 Loading groups for user:", user.uid, { forceRefresh });
+
+    // Don't show loading for cached requests
+    if (forceRefresh || groups.length === 0) {
+      setLoading(true);
+    }
+
+    try {
+      const startTime = Date.now();
+      const userGroups = await getUserGroups(user.uid, !forceRefresh);
+      const loadTime = Date.now() - startTime;
+
+      console.log("✅ Groups loaded:", {
+        count: userGroups.length,
+        loadTimeMs: loadTime,
+        cached: loadTime < 100,
+      });
+
+      // Filter out any null/undefined groups
+      const validGroups = userGroups.filter((group) => group && group.id);
+      setGroups(validGroups);
+
+      if (loadTime > 1000) {
+        console.warn("⚠️ Slow loading detected:", loadTime, "ms");
+      }
+    } catch (error) {
+      console.error("❌ Error loading groups:", error);
+      Alert.alert("Error", "Failed to load groups. Please try again.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    // Load groups immediately on mount and when user changes
+    if (user && !authLoading) {
+      loadGroups();
+
+      // Also preload in background without UI loading state
+      setTimeout(() => {
+        loadGroups(true);
+      }, 1000);
+    }
+  }, [user, authLoading]);
+
+  // Refresh groups when screen comes into focus (e.g., after creating a group)
+  useFocusEffect(
+    useCallback(() => {
+      if (user && !authLoading) {
+        console.log("🔍 Screen focused - refreshing groups...");
+        loadGroups(true); // Force refresh when screen comes into focus
+      }
+    }, [user, authLoading])
+  );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadGroups(true); // Force refresh, bypass cache
+  };
+
+  const handleProfilePress = () => {
+    setShowProfileModal(true);
+  };
+
+  const handleProfileModalClose = () => {
+    setShowProfileModal(false);
+  };
+
+  const handleViewProfile = () => {
+    setShowProfileModal(false);
+    router.push("/(tabs)/profile");
+  };
+
+  const handleLogoutPress = () => {
+    setShowProfileModal(false);
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setShowLogoutModal(false);
     try {
       await logoutUser();
       router.replace("/(auth)/login");

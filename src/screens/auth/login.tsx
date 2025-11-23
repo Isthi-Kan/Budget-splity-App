@@ -83,7 +83,8 @@ export default function Login() {
         return;
       }
 
-      router.replace("/(tabs)/home");
+      console.log("🎉 Login successful, navigating to tabs");
+      router.replace("/(tabs)");
     } catch (err: any) {
       setGeneralError(err.message);
       console.error("Login error:", err.message);
