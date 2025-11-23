@@ -36,6 +36,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# firestore rules with wrong extensions (to prevent errors)
+firestore-security-rules.js
+firestore*.js
+
 app-example
 
 # generated native folders
