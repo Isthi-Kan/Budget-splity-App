@@ -34,15 +34,45 @@ export interface Group {
 export interface Expense {
   id: string;
   title: string;
+  description?: string;
   amount: number;
   currency?: string;
   paidBy: string;
+  paidByName?: string; // Display name for UI
   participants: string[];
+  participantNames?: Record<string, string>; // Map of uid to display name
   shares?: Record<string, number>;
   splitType: "equal" | "custom" | "percentage";
+  category?: string;
+  proofImageUrl?: string;
+  proofImagePath?: string; // Storage path for deletion
   note?: string;
   createdAt: any;
+  updatedAt?: any;
   paidAt?: any;
+  location?: string;
+  tags?: string[];
+}
+
+// Enhanced expense with calculated fields
+export interface ExpenseWithCalculations extends Expense {
+  individualShare: number;
+  userOwes: number;
+  userPaid: boolean;
+}
+
+// Proof image type
+export interface ProofImage {
+  id: string;
+  expenseId: string;
+  groupId: string;
+  url: string;
+  storagePath: string;
+  uploadedBy: string;
+  uploadedAt: any;
+  fileName: string;
+  size: number;
+  contentType: string;
 }
 
 // Member types
@@ -56,13 +86,41 @@ export interface Member {
 // Balance calculation types
 export interface Balance {
   uid: string;
-  balance: number;
+  name?: string;
+  email?: string;
+  displayName?: string;
+  totalPaid: number;
+  totalOwes: number;
+  balance: number; // positive = should receive, negative = owes
+  expenses: string[]; // expense IDs
 }
 
 export interface Settlement {
-  from: string;
-  to: string;
+  id: string;
+  groupId: string;
+  fromUser: string;
+  fromUserName?: string;
+  toUser: string;
+  toUserName?: string;
   amount: number;
+  settled: boolean;
+  settledAt?: any;
+  createdAt: any;
+  note?: string;
+}
+
+// Group summary type
+export interface GroupSummary {
+  id: string;
+  groupId: string;
+  totalExpenses: number;
+  totalAmount: number;
+  balances: Balance[];
+  settlements: Settlement[];
+  lastUpdated: any;
+  expensesByCategory?: Record<string, number>;
+  expensesByMonth?: Record<string, number>;
+  topSpenders?: Array<{uid: string; name?: string; amount: number}>;
 }
 
 // Navigation types
