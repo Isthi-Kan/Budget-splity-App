@@ -205,11 +205,12 @@ export default function GroupSummaryScreen() {
                       balance.name ||
                       balance.uid}
                   </Text>
-                  {balance.displayName && balance.displayName.includes('Missing Profile') && (
-                    <Text style={styles.missingProfileText}>
-                      Needs to complete signup
-                    </Text>
-                  )}
+                  {balance.displayName &&
+                    balance.displayName.includes("Missing Profile") && (
+                      <Text style={styles.missingProfileText}>
+                        Needs to complete signup
+                      </Text>
+                    )}
                   <Text style={styles.balanceDetails}>
                     Paid: ${(balance.totalPaid || 0).toFixed(2)} | Owes: $
                     {(balance.totalOwes || 0).toFixed(2)}
