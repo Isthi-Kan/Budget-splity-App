@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
+  Modal,
   RefreshControl,
   Share,
   StyleSheet,
@@ -16,7 +17,8 @@ import {
   getGroupExpenses,
 } from "../../services/firebase/expenses";
 import { getGroup } from "../../services/firebase/groups";
-import { Balance, Expense, Group } from "../../types";
+import { getUserDocument } from "../../services/firebase/users";
+import { Balance, Expense, Group, User } from "../../types";
 
 export default function GroupDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,6 +30,9 @@ export default function GroupDetail() {
   const [group, setGroup] = useState<Group | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [balances, setBalances] = useState<Balance[]>([]);
+  const [members, setMembers] = useState<User[]>([]);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -91,7 +96,7 @@ export default function GroupDetail() {
         setLoading(false);
         Alert.alert("Timeout", "Loading took too long. Please try again.");
       }
-    }, 15000); // 15 second timeout
+    }, 30000); // 30 second timeout
 
     loadGroupData();
 
@@ -110,7 +115,7 @@ export default function GroupDetail() {
         console.warn("⚠️ Refresh timeout - forcing refresh to false");
         setRefreshing(false);
       }
-    }, 10000);
+    }, 20000);
 
     loadGroupData().finally(() => {
       clearTimeout(refreshTimeout);
@@ -131,6 +136,60 @@ export default function GroupDetail() {
       });
     } catch (error) {
       console.error("Error sharing:", error);
+    }
+  };
+
+  const handleShowMembers = async () => {
+    if (!group) return;
+
+    setShowMembersModal(true);
+    setLoadingMembers(true);
+
+    try {
+      // Fetch user details for all members
+      const memberData = await Promise.all(
+        group.members.map(async (memberId) => {
+          try {
+            const userData = await getUserDocument(memberId);
+            if (userData) {
+              return userData;
+            } else {
+              // Create a fallback user object if no document exists
+              const isEmailUid =
+                memberId.includes("@") && memberId.includes(".");
+              return {
+                uid: memberId,
+                email: isEmailUid ? memberId : "",
+                name: isEmailUid
+                  ? memberId
+                  : `User ${memberId.substring(0, 8)}`,
+                createdAt: null,
+                lastSeen: null,
+              } as User;
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch user ${memberId}:`, error);
+            // Create fallback user object
+            const isEmailUid = memberId.includes("@") && memberId.includes(".");
+            return {
+              uid: memberId,
+              email: isEmailUid ? memberId : "",
+              name: isEmailUid
+                ? memberId
+                : `User ${memberId.substring(0, 8)} (Missing Profile)`,
+              createdAt: null,
+              lastSeen: null,
+            } as User;
+          }
+        })
+      );
+
+      setMembers(memberData);
+    } catch (error) {
+      console.error("Error loading members:", error);
+      Alert.alert("Error", "Failed to load group members");
+    } finally {
+      setLoadingMembers(false);
     }
   };
 
@@ -223,6 +282,21 @@ export default function GroupDetail() {
 
         <View style={styles.groupInfo}>
           <Text style={styles.memberCount}>{group.members.length} members</Text>
+        </View>
+
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.membersButton}
+            onPress={handleShowMembers}
+          >
+            <Text style={styles.membersButtonText}>Show Members</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.summaryButton}
+            onPress={() => router.push(`/group-summary?groupId=${id}` as any)}
+          >
+            <Text style={styles.summaryButtonText}>Group Summary</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.shareButton}
             onPress={handleShareInviteCode}
@@ -268,6 +342,69 @@ export default function GroupDetail() {
       >
         <Text style={styles.addExpenseButtonText}>Add Expense</Text>
       </TouchableOpacity>
+
+      {/* Members Modal */}
+      <Modal
+        visible={showMembersModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Group Members</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowMembersModal(false)}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loadingMembers ? (
+            <View style={styles.modalLoadingContainer}>
+              <Text style={styles.modalLoadingText}>Loading members...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={members}
+              keyExtractor={(item) => item.uid}
+              renderItem={({ item }) => (
+                <View style={styles.memberCard}>
+                  <View style={styles.memberAvatar}>
+                    <Text style={styles.memberInitials}>
+                      {(item.email || item.name || item.uid)
+                        .charAt(0)
+                        .toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.memberInfo}>
+                    <Text style={styles.memberName}>
+                      {item.email ||
+                        item.name ||
+                        `User ${item.uid.substring(0, 8)}`}
+                    </Text>
+                    <Text style={styles.memberEmail}>
+                      {item.email ? "Email Verified" : "Profile Incomplete"}
+                    </Text>
+                    {item.name && item.name.includes("Missing Profile") && (
+                      <Text style={styles.missingProfileText}>
+                        Needs to complete signup
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.memberRole}>
+                    <Text style={styles.roleText}>
+                      {item.uid === group?.hostId ? "Host" : "Member"}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              style={styles.membersList}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -302,9 +439,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   groupInfo: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    marginTop: 8,
   },
   memberCount: {
     fontSize: 14,
@@ -316,13 +451,51 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     backgroundColor: "#3b82f6",
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    flex: 1,
+    maxWidth: "30%",
+    alignItems: "center",
   },
   shareButtonText: {
     color: "white",
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 4,
+    marginTop: 12,
+    flexWrap: "nowrap",
+  },
+  membersButton: {
+    backgroundColor: "#8b5cf6",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+    maxWidth: "30%",
+    alignItems: "center",
+  },
+  membersButtonText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  summaryButton: {
+    backgroundColor: "#10b981",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+    maxWidth: "35%",
+    alignItems: "center",
+  },
+  summaryButtonText: {
+    color: "white",
+    fontSize: 12,
     fontWeight: "600",
   },
   tabsContainer: {
@@ -484,5 +657,110 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#1f2937",
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#f3f4f6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: "#6b7280",
+    fontWeight: "bold",
+  },
+  modalLoadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalLoadingText: {
+    fontSize: 16,
+    color: "#6b7280",
+  },
+  membersList: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  memberCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  memberAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#3b82f6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  memberInitials: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "white",
+  },
+  memberInfo: {
+    flex: 1,
+  },
+  memberName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginBottom: 4,
+  },
+  memberEmail: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+  missingProfileText: {
+    fontSize: 12,
+    color: "#f59e0b",
+    fontStyle: "italic",
+    marginTop: 2,
+  },
+  memberRole: {
+    backgroundColor: "#f3f4f6",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  roleText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6b7280",
   },
 });

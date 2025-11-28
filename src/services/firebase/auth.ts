@@ -7,7 +7,7 @@ import {
     updateProfile
 } from "firebase/auth";
 import { auth } from "./config";
-import { createUserDocument } from "./users";
+import { createUserDocument, getUserDocument, updateLastSeen } from "./users";
 
 export const signUpUser = async (email: string, password: string, displayName?: string) => {
   try {
@@ -46,18 +46,41 @@ export const loginUser = async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     console.log("✅ signInWithEmailAndPassword successful");
     
+    const user = userCredential.user;
     console.log("👤 User object:", {
-      uid: userCredential.user.uid,
-      email: userCredential.user.email,
-      emailVerified: userCredential.user.emailVerified,
-      displayName: userCredential.user.displayName
+      uid: user.uid,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      displayName: user.displayName
     });
     
-    // Temporarily skip updateLastSeen to see if it's causing the hang
-    console.log("⚠️ Skipping updateLastSeen for debugging");
-    // await updateLastSeen(userCredential.user.uid);
+    // Check if user document exists in Firestore
+    console.log("🔍 Checking for existing user document...");
+    const existingUserDoc = await getUserDocument(user.uid);
     
-    return userCredential.user;
+    if (!existingUserDoc) {
+      console.log("📝 User document not found, creating new document...");
+      try {
+        await createUserDocument(user.uid, user.email!, user.displayName || '');
+        console.log("✅ User document created successfully");
+      } catch (docError: any) {
+        console.error("❌ Failed to create user document:", docError);
+        // Don't fail login if user document creation fails
+      }
+    } else {
+      console.log("✅ User document already exists");
+    }
+    
+    // Update last seen timestamp
+    try {
+      await updateLastSeen(user.uid);
+      console.log("✅ Last seen updated successfully");
+    } catch (lastSeenError: any) {
+      console.error("⚠️ Failed to update last seen:", lastSeenError);
+      // Don't fail login if last seen update fails
+    }
+    
+    return user;
   } catch (error: any) {
     console.error("❌ Firebase auth error:", error);
     console.error("Error code:", error.code);

@@ -178,7 +178,14 @@ export const getUserGroups = async (uid: string, useCache = true): Promise<Group
 export const getGroup = async (groupId: string): Promise<Group | null> => {
   try {
     const docRef = doc(db, 'groups', groupId);
-    const docSnap = await getDoc(docRef);
+    
+    // Add timeout protection
+    const getDocPromise = getDoc(docRef);
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000)
+    );
+    
+    const docSnap = await Promise.race([getDocPromise, timeoutPromise]);
     
     if (docSnap.exists()) {
       return {
@@ -188,7 +195,16 @@ export const getGroup = async (groupId: string): Promise<Group | null> => {
     }
     return null;
   } catch (error: any) {
-    throw new Error(`Failed to get group: ${error.message}`);
+    if (error.message?.includes('timeout')) {
+      console.error("❌ Group query timed out for group:", groupId);
+      throw new Error('Request timed out. Please check your internet connection and try again.');
+    } else if (error.code === 'permission-denied') {
+      console.error("❌ Permission denied for group:", groupId);
+      throw new Error('You do not have permission to access this group.');
+    } else {
+      console.error("❌ Error getting group:", error);
+      throw new Error(`Failed to get group: ${error.message || 'Unknown error'}`);
+    }
   }
 };
 
