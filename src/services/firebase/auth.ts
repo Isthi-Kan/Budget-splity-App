@@ -54,17 +54,17 @@ export const loginUser = async (email: string, password: string) => {
       displayName: user.displayName
     });
     
-    // Check if user document exists in Firestore
+    // Check if user document exists in Firestore (fallback for old users)
     console.log("🔍 Checking for existing user document...");
     const existingUserDoc = await getUserDocument(user.uid);
     
     if (!existingUserDoc) {
-      console.log("📝 User document not found, creating new document...");
+      console.log("📝 User document not found - creating fallback document for legacy user...");
       try {
         await createUserDocument(user.uid, user.email!, user.displayName || '');
-        console.log("✅ User document created successfully");
+        console.log("✅ Fallback user document created successfully");
       } catch (docError: any) {
-        console.error("❌ Failed to create user document:", docError);
+        console.error("❌ Failed to create fallback user document:", docError);
         // Don't fail login if user document creation fails
       }
     } else {

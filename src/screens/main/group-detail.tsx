@@ -89,37 +89,14 @@ export default function GroupDetail() {
   useEffect(() => {
     console.log("🔄 useEffect triggered - ID:", id, "User:", user?.uid);
 
-    // Add timeout protection to prevent infinite loading
-    const loadTimeout = setTimeout(() => {
-      if (loading) {
-        console.error("⚠️ Loading timeout - forcing loading to false");
-        setLoading(false);
-        Alert.alert("Timeout", "Loading took too long. Please try again.");
-      }
-    }, 30000); // 30 second timeout
-
     loadGroupData();
-
-    return () => {
-      clearTimeout(loadTimeout);
-    };
   }, [id, user?.uid]); // Use user?.uid instead of user to prevent unnecessary rerenders
 
   const handleRefresh = () => {
     console.log("🔄 Manual refresh triggered");
     setRefreshing(true);
 
-    // Add timeout for refresh as well
-    const refreshTimeout = setTimeout(() => {
-      if (refreshing) {
-        console.warn("⚠️ Refresh timeout - forcing refresh to false");
-        setRefreshing(false);
-      }
-    }, 20000);
-
-    loadGroupData().finally(() => {
-      clearTimeout(refreshTimeout);
-    });
+    loadGroupData();
   };
 
   const handleAddExpense = () => {

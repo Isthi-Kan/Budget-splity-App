@@ -101,10 +101,10 @@ export const getGroupExpenses = async (groupId: string): Promise<Expense[]> => {
     const expensesRef = collection(db, 'expenses', groupId, 'expenses');
     const q = query(expensesRef, orderBy('createdAt', 'desc'));
     
-    // Add timeout protection
+    // Add aggressive timeout protection
     const queryPromise = getDocs(q);
     const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Query timeout after 15 seconds')), 15000)
+      setTimeout(() => reject(new Error('Query timeout after 8 seconds')), 8000)
     );
     
     const querySnapshot = await Promise.race([queryPromise, timeoutPromise]);
@@ -301,7 +301,7 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
       try {
         const userPromise = getUserDocument(uid);
         const timeoutPromise = new Promise<null>((_, reject) => 
-          setTimeout(() => reject(new Error(`User fetch timeout for ${uid}`)), 5000)
+          setTimeout(() => reject(new Error(`User fetch timeout for ${uid}`)), 2000)
         );
         
         const user = await Promise.race([userPromise, timeoutPromise]);
@@ -629,20 +629,56 @@ export const updateExpenseWithProof = async (
  * Get comprehensive group summary with caching
  */
 /**
- * Calculate group summary with timeout protection
+ * Calculate group summary with timeout protection and fallbacks
  */
 const calculateGroupSummaryWithTimeout = async (groupId: string): Promise<{
   summary: { balances: Balance[]; settlements: Settlement[] };
   expenses: Expense[];
 }> => {
-  console.log("🔄 Force invalidating cache and calculating fresh summary...");
-  await invalidateGroupSummary(groupId);
+  console.log("🔄 Starting group summary calculation with fallbacks...");
   
-  // Calculate fresh summary
-  const summary = await calculateGroupSummary(groupId);
-  const expenses = await getGroupExpenses(groupId);
-  
-  return { summary, expenses };
+  try {
+    // Try to invalidate cache (don't fail if this doesn't work)
+    try {
+      await invalidateGroupSummary(groupId);
+    } catch (cacheError) {
+      console.warn("Cache invalidation failed, continuing...", cacheError);
+    }
+    
+    // Get expenses with aggressive timeout
+    let expenses: Expense[] = [];
+    try {
+      expenses = await getGroupExpenses(groupId);
+      console.log("✅ Got expenses:", expenses.length);
+    } catch (expenseError) {
+      console.error("❌ Failed to get expenses, using empty array:", expenseError);
+      expenses = []; // Continue with empty expenses if needed
+    }
+    
+    // Calculate summary with fallback
+    let summary: { balances: Balance[]; settlements: Settlement[] };
+    try {
+      summary = await calculateGroupSummary(groupId);
+      console.log("✅ Calculated summary successfully");
+    } catch (summaryError) {
+      console.error("❌ Failed to calculate summary, using empty data:", summaryError);
+      // Return minimal empty summary
+      summary = {
+        balances: [],
+        settlements: []
+      };
+    }
+    
+    return { summary, expenses };
+    
+  } catch (error: any) {
+    console.error("❌ Complete failure in summary calculation:", error);
+    // Return absolute fallback
+    return {
+      summary: { balances: [], settlements: [] },
+      expenses: []
+    };
+  }
 };
 
 /**
@@ -655,7 +691,7 @@ export const getGroupSummary = async (groupId: string): Promise<GroupSummary> =>
     // Add timeout protection for the entire summary calculation
     const summaryPromise = calculateGroupSummaryWithTimeout(groupId);
     const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Group summary calculation timed out after 20 seconds')), 20000)
+      setTimeout(() => reject(new Error('Group summary calculation timed out after 12 seconds')), 12000)
     );
     
     const { summary, expenses } = await Promise.race([summaryPromise, timeoutPromise]);
