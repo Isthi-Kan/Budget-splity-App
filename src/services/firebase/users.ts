@@ -12,15 +12,21 @@ export const createUserDocument = async (
   name?: string
 ): Promise<void> => {
   try {
+    // Ensure we have a proper name - use email prefix if name is empty
+    const userName = name && name.trim() ? name.trim() : email.split('@')[0];
+    
     const userData: Omit<User, 'uid'> = {
       email: email.toLowerCase().trim(),
-      name: name || '',
+      name: userName,
       createdAt: serverTimestamp(),
       lastSeen: serverTimestamp(),
     };
 
+    console.log("Creating user document:", { uid, email, name: userName });
     await setDoc(doc(db, 'users', uid), userData);
+    console.log("✅ User document created successfully");
   } catch (error: any) {
+    console.error("❌ Failed to create user document:", error);
     throw new Error(`Failed to create user document: ${error.message}`);
   }
 };

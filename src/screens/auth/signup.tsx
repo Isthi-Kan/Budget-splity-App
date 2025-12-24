@@ -1,8 +1,4 @@
 import { useRouter } from "expo-router";
-import {
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-} from "firebase/auth";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -16,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../../services/firebase/config";
+import { signUpUser } from "../../services/firebase/auth";
 
 const { width, height } = Dimensions.get("window");
 
@@ -97,27 +93,18 @@ export default function Signup() {
     try {
       console.log("Starting signup process...");
 
-      // Create the account
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
+      // Use our signUpUser function which creates both Firebase Auth user and Firestore document
+      const user = await signUpUser(
         formData.email.trim(),
-        formData.password
+        formData.password,
+        formData.name ? formData.name.trim() : formData.email.trim() // Use name or fallback to email
       );
 
-      console.log("Account created, sending verification email...");
-
-      try {
-        // Automatically send verification email
-        await sendEmailVerification(userCredential.user);
-        console.log("Verification email sent, navigating...");
-      } catch (emailError: any) {
-        console.warn(
-          "Email sending failed, but account created:",
-          emailError.message
-        );
-        // Continue to verification screen even if email sending fails
-        // User can resend from there
-      }
+      console.log(
+        "Account created successfully with Firestore document:",
+        user.uid
+      );
+      console.log("Email verification sent automatically");
 
       setLoading(false);
       router.replace("/(auth)/verify-email");

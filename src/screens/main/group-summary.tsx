@@ -56,39 +56,76 @@ export default function GroupSummaryScreen() {
       setLoading(true);
       console.log("Loading data for group:", groupId);
 
-      // Load group and summary data with timeout
-      const dataPromise = Promise.all([
-        getGroup(groupId),
-        getGroupSummary(groupId),
-      ]);
+      // Try to load group data first (this should be fast)
+      let groupData: any = null;
+      try {
+        groupData = await getGroup(groupId);
+        console.log("✅ Group data loaded:", groupData?.name);
+        setGroup(groupData);
+      } catch (groupError) {
+        console.error("❌ Failed to load group data:", groupError);
+        throw new Error("Failed to load group information");
+      }
 
-      // Add 30 second timeout
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Request timeout")), 30000)
-      );
+      // Then try to load summary data with timeout
+      let summaryData: any = null;
+      try {
+        const summaryPromise = getGroupSummary(groupId);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Request timeout")), 10000)
+        );
 
-      const [groupData, summaryData] = (await Promise.race([
-        dataPromise,
-        timeoutPromise,
-      ])) as [any, any];
+        summaryData = await Promise.race([summaryPromise, timeoutPromise]);
+        console.log("✅ Summary data loaded successfully");
+        setSummary(summaryData);
+      } catch (summaryError) {
+        console.error("❌ Failed to load summary:", summaryError);
 
-      console.log("Data loaded successfully");
-      setGroup(groupData);
-      setSummary(summaryData);
+        // Set empty summary so the UI can still work
+        setSummary({
+          id: groupId,
+          groupId: groupId,
+          totalExpenses: 0,
+          totalAmount: 0,
+          balances: [],
+          settlements: [],
+          lastUpdated: new Date(),
+          expensesByCategory: {},
+          expensesByMonth: {},
+          topSpenders: [],
+        } as any);
+
+        // Show warning but don't fail completely
+        Alert.alert(
+          "Summary Unavailable",
+          "Group summary couldn't be loaded, but basic group info is available.",
+          [{ text: "OK" }]
+        );
+      }
+
+      console.log("Data loading completed");
     } catch (error: any) {
-      console.error("Error loading summary data:", error);
+      console.error("Error loading data:", error);
 
       // More specific error handling
-      const errorMessage = error.message?.includes("timeout")
-        ? "Request timed out. Please check your internet connection and try again."
-        : error.message?.includes("permission") ||
-          error.message?.includes("insufficient")
-        ? "You don't have permission to access this group."
-        : "Failed to load group summary. Please try again.";
+      let errorMessage = "Failed to load group data. Please try again.";
+
+      if (error.message?.includes("timeout")) {
+        errorMessage =
+          "Request timed out. Please check your internet connection and try again.";
+      } else if (
+        error.message?.includes("permission") ||
+        error.message?.includes("insufficient")
+      ) {
+        errorMessage = "You don't have permission to access this group.";
+      } else if (error.message?.includes("network")) {
+        errorMessage =
+          "Network error. Please check your connection and try again.";
+      }
 
       Alert.alert("Error", errorMessage);
 
-      // Reset states on error
+      // Reset states on complete failure
       setGroup(null);
       setSummary(null);
     } finally {
