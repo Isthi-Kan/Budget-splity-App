@@ -4,6 +4,7 @@ export interface User {
   name?: string;
   email: string;
   photoURL?: string;
+  bio?: string;
   emailVerified?: boolean;
   createdAt: any;
   lastSeen?: any;
@@ -28,6 +29,7 @@ export interface Group {
   hostId: string;
   inviteCode?: string;
   members: string[];
+  photoURL?: string;
   createdAt: any;
 }
 
@@ -93,6 +95,7 @@ export interface Balance {
   totalPaid: number;
   totalOwes: number;
   balance: number; // positive = should receive, negative = owes
+  photoURL?: string;
   expenses: string[]; // expense IDs
 }
 

@@ -1,5 +1,8 @@
+import { updateProfile as firebaseUpdateProfile } from 'firebase/auth';
 import { loginUser as firebaseLogin, logoutUser as firebaseLogout, signUpUser as firebaseSignUp } from '../services/firebase/auth';
+import { auth } from '../services/firebase/config';
 import { getUserGroups } from '../services/firebase/groups';
+import { updateUserDocument } from '../services/firebase/users';
 import { User } from '../types';
 import { Action } from './types';
 
@@ -62,6 +65,33 @@ export const logoutAction = async (dispatch: React.Dispatch<Action>) => {
     } catch (error: any) {
         console.error("Logout action error:", error);
         return false;
+    }
+};
+
+export const updateProfileAction = async (dispatch: React.Dispatch<Action>, uid: string, updates: { name?: string; photoURL?: string; bio?: string }) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+        // 1. Update Firestore
+        await updateUserDocument(uid, updates);
+
+        // 2. Update Firebase Auth Profile
+        if (auth.currentUser) {
+            const authUpdates: any = {};
+            if (updates.name) authUpdates.displayName = updates.name;
+            if (updates.photoURL) authUpdates.photoURL = updates.photoURL;
+            // Note: Firebase Auth doesn't have a standard bio field, we store it in Firestore
+            await firebaseUpdateProfile(auth.currentUser, authUpdates);
+        }
+
+        // 3. Update Local State
+        dispatch({ type: 'UPDATE_USER', payload: updates as Partial<User> });
+        return true;
+    } catch (error: any) {
+        console.error("Update profile action error:", error);
+        dispatch({ type: 'SET_ERROR', payload: error.message || "Update failed" });
+        return false;
+    } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
     }
 };
 

@@ -17,4 +17,5 @@ export type Action =
     | { type: 'SET_LOADING'; payload: boolean }
     | { type: 'SET_ERROR'; payload: string | null }
     | { type: 'SET_THEME'; payload: 'light' | 'dark' }
+    | { type: 'UPDATE_USER'; payload: Partial<User> }
     | { type: 'LOGOUT' };

@@ -27,19 +27,25 @@ function RootNavigator() {
     if (!state.authInitialized) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const onVerifyEmail = segments[1] === "verify-email";
+    // Cast to any/unknown to bypass narrow layout length types in the guard
+    const isWelcomeScreen = (segments as any).length === 0;
     
-    if (!state.isAuthenticated && !inAuthGroup) {
-      // Redirect to login if not authenticated and not in auth group
-      // router.replace("/(auth)/login");
-      // Note: We might want allow the landing page ("index")? 
-      // Checking segments... if segments is empty or "index", it's the landing page.
-      // Let's assume we protect everything except auth and welcome (index).
-      // Actually, typically index is the welcome screen.
-    } else if (state.isAuthenticated && inAuthGroup) {
-      // Redirect to home if authenticated and trying to access auth screens
-      router.replace("/(tabs)/home");
+    if (state.isAuthenticated) {
+      if (state.user && !state.user.emailVerified) {
+        // If authenticated but not verified, force them to verify-email
+        if (!onVerifyEmail) {
+          router.replace("/(auth)/verify-email");
+        }
+      } else if (inAuthGroup || isWelcomeScreen) {
+        // If authenticated, verified and trying to access auth screens OR welcome (index)
+        router.replace("/(tabs)/home");
+      }
+    } else if (!inAuthGroup && !isWelcomeScreen) {
+      // If not authenticated, not on welcome, and not in auth group, redirect to login
+      router.replace("/(auth)/login");
     }
-  }, [state.isAuthenticated, state.authInitialized, segments]);
+  }, [state.isAuthenticated, state.user?.emailVerified, state.authInitialized, segments]);
 
   if (!fontsLoaded || !state.authInitialized) {
     return (
@@ -50,30 +56,27 @@ function RootNavigator() {
   }
 
   return (
-    <Stack>
+    <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="(group)/create-group"
         options={{
-          headerShown: true,
-          title: "Create Group",
+          headerShown: false,
           presentation: "modal",
         }}
       />
       <Stack.Screen
         name="(group)/group/[id]"
         options={{
-          headerShown: true,
-          title: "Group Details",
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="(group)/group-summary"
         options={{
-          headerShown: true,
-          title: "Group Summary",
+          headerShown: false,
         }}
       />
     </Stack>

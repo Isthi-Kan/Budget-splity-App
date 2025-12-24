@@ -19,6 +19,11 @@ export const appReducer = (state: AppState, action: Action): AppState => {
                 isAuthenticated: !!action.payload,
                 error: null,
             };
+        case 'UPDATE_USER':
+            return {
+                ...state,
+                user: state.user ? { ...state.user, ...action.payload } : null,
+            };
         case 'SET_GROUPS':
             return {
                 ...state,

@@ -1,2 +1,2 @@
-// Auth route - Verify Email
-export { default } from "../../src/screens/auth/verify-email";
+import { VerifyEmailScreen } from "../../src/screens/auth";
+export default VerifyEmailScreen;

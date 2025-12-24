@@ -1,12 +1,11 @@
 // Firebase Storage service for handling proof images
 import {
-    deleteObject,
-    getDownloadURL,
-    ref,
-    uploadBytes,
-    uploadBytesResumable
+  deleteObject,
+  getDownloadURL,
+  ref,
+  uploadBytesResumable,
+  uploadString
 } from 'firebase/storage';
-import { Platform } from 'react-native';
 import { storage } from './config';
 
 /**
@@ -19,44 +18,65 @@ export const uploadExpenseProof = async (
   fileName?: string
 ): Promise<{ url: string; storagePath: string }> => {
   console.log('📸 Uploading expense proof image...');
-  
+
   try {
     // Generate unique filename if not provided
     const timestamp = Date.now();
     const finalFileName = fileName || `proof_${timestamp}.jpg`;
-    
+
     // Create storage reference
     const storagePath = `expenses/${groupId}/${expenseId}/${finalFileName}`;
     const storageRef = ref(storage, storagePath);
-    
-    // Prepare image for upload
-    let blob: Blob;
-    
-    if (Platform.OS === 'web') {
-      // Web: fetch the image and convert to blob
-      const response = await fetch(imageUri);
-      blob = await response.blob();
+
+    const metadata = { contentType: 'image/jpeg' };
+
+    let downloadURL: string;
+
+    if (imageUri.startsWith('data:image') || !imageUri.includes('://')) {
+      console.log('📤 Uploading expense proof as Base64 string...', storagePath);
+      const base64Data = imageUri.includes('base64,') ? imageUri.split('base64,')[1] : imageUri;
+      const snapshot = await uploadString(storageRef, base64Data, 'base64', metadata);
+      downloadURL = await getDownloadURL(snapshot.ref);
     } else {
-      // Mobile: convert URI to blob
-      const response = await fetch(imageUri);
-      blob = await response.blob();
+      // Prepare image for upload
+      const blob: any = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          resolve(xhr.response);
+        };
+        xhr.onerror = function (e) {
+          console.error('Blob conversion error:', e);
+          reject(new TypeError("Network request failed"));
+        };
+        xhr.responseType = "blob";
+        xhr.open("GET", imageUri, true);
+        xhr.send(null);
+      });
+
+      console.log('📤 Uploading image blob...', storagePath);
+
+      // Upload the image using Resumable task for better reliability
+      const uploadTask = uploadBytesResumable(storageRef, blob, metadata);
+
+      downloadURL = await new Promise<string>((resolve, reject) => {
+        uploadTask.on('state_changed',
+          null,
+          (error) => reject(error),
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(url);
+          }
+        );
+      });
     }
-    
-    console.log('📤 Uploading image blob...');
-    
-    // Upload the image
-    const uploadResult = await uploadBytes(storageRef, blob);
-    
-    // Get download URL
-    const downloadURL = await getDownloadURL(uploadResult.ref);
-    
+
     console.log('✅ Image uploaded successfully:', downloadURL);
-    
+
     return {
       url: downloadURL,
       storagePath: storagePath
     };
-    
+
   } catch (error: any) {
     console.error('❌ Error uploading image:', error);
     throw new Error(`Failed to upload image: ${error.message}`);
@@ -76,29 +96,34 @@ export const uploadExpenseProofWithProgress = (
   return new Promise(async (resolve, reject) => {
     try {
       console.log('📸 Uploading expense proof with progress tracking...');
-      
+
       // Generate unique filename if not provided
       const timestamp = Date.now();
       const finalFileName = fileName || `proof_${timestamp}.jpg`;
-      
+
       // Create storage reference
       const storagePath = `expenses/${groupId}/${expenseId}/${finalFileName}`;
       const storageRef = ref(storage, storagePath);
-      
+
       // Prepare image for upload
-      let blob: Blob;
-      
-      if (Platform.OS === 'web') {
-        const response = await fetch(imageUri);
-        blob = await response.blob();
-      } else {
-        const response = await fetch(imageUri);
-        blob = await response.blob();
-      }
-      
+      const blob: any = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          resolve(xhr.response);
+        };
+        xhr.onerror = function (e) {
+          console.error('Blob conversion error:', e);
+          reject(new TypeError("Network request failed"));
+        };
+        xhr.responseType = "blob";
+        xhr.open("GET", imageUri, true);
+        xhr.send(null);
+      });
+
       // Create upload task with progress tracking
-      const uploadTask = uploadBytesResumable(storageRef, blob);
-      
+      const metadata = { contentType: 'image/jpeg' };
+      const uploadTask = uploadBytesResumable(storageRef, blob, metadata);
+
       // Monitor upload progress
       uploadTask.on('state_changed',
         (snapshot) => {
@@ -115,7 +140,7 @@ export const uploadExpenseProofWithProgress = (
             // Upload completed successfully
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             console.log('✅ Image uploaded successfully with progress tracking');
-            
+
             resolve({
               url: downloadURL,
               storagePath: storagePath
@@ -125,7 +150,7 @@ export const uploadExpenseProofWithProgress = (
           }
         }
       );
-      
+
     } catch (error: any) {
       console.error('❌ Error starting upload:', error);
       reject(new Error(`Failed to start upload: ${error.message}`));
@@ -138,11 +163,11 @@ export const uploadExpenseProofWithProgress = (
  */
 export const deleteExpenseProof = async (storagePath: string): Promise<void> => {
   console.log('🗑️ Deleting expense proof:', storagePath);
-  
+
   try {
     const storageRef = ref(storage, storagePath);
     await deleteObject(storageRef);
-    
+
     console.log('✅ Image deleted successfully');
   } catch (error: any) {
     console.error('❌ Error deleting image:', error);
@@ -173,33 +198,59 @@ export const uploadUserProfileImage = async (
   fileName?: string
 ): Promise<{ url: string; storagePath: string }> => {
   console.log('👤 Uploading user profile image...');
-  
+
   try {
     const timestamp = Date.now();
     const finalFileName = fileName || `profile_${timestamp}.jpg`;
     const storagePath = `users/${userId}/profile/${finalFileName}`;
     const storageRef = ref(storage, storagePath);
-    
-    let blob: Blob;
-    
-    if (Platform.OS === 'web') {
-      const response = await fetch(imageUri);
-      blob = await response.blob();
+    const metadata = { contentType: 'image/jpeg' };
+
+    let downloadURL: string;
+
+    if (imageUri.startsWith('data:image') || !imageUri.includes('://')) {
+      console.log('📤 Uploading profile image as Base64 string...', storagePath);
+      const base64Data = imageUri.includes('base64,') ? imageUri.split('base64,')[1] : imageUri;
+      const snapshot = await uploadString(storageRef, base64Data, 'base64', metadata);
+      downloadURL = await getDownloadURL(snapshot.ref);
     } else {
-      const response = await fetch(imageUri);
-      blob = await response.blob();
+      // Prepare image for upload
+      const blob: any = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          resolve(xhr.response);
+        };
+        xhr.onerror = function (e) {
+          console.error('Blob conversion error:', e);
+          reject(new TypeError("Network request failed"));
+        };
+        xhr.responseType = "blob";
+        xhr.open("GET", imageUri, true);
+        xhr.send(null);
+      });
+
+      console.log('📤 Uploading profile image blob...', storagePath);
+      const uploadTask = uploadBytesResumable(storageRef, blob, metadata);
+
+      downloadURL = await new Promise<string>((resolve, reject) => {
+        uploadTask.on('state_changed',
+          null,
+          (error) => reject(error),
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(url);
+          }
+        );
+      });
     }
-    
-    const uploadResult = await uploadBytes(storageRef, blob);
-    const downloadURL = await getDownloadURL(uploadResult.ref);
-    
-    console.log('✅ Profile image uploaded successfully');
-    
+
+    console.log('✅ Profile image uploaded successfully:', downloadURL);
+
     return {
       url: downloadURL,
       storagePath: storagePath
     };
-    
+
   } catch (error: any) {
     console.error('❌ Error uploading profile image:', error);
     throw new Error(`Failed to upload profile image: ${error.message}`);
@@ -215,33 +266,60 @@ export const uploadGroupImage = async (
   fileName?: string
 ): Promise<{ url: string; storagePath: string }> => {
   console.log('🏷️ Uploading group image...');
-  
+
   try {
     const timestamp = Date.now();
     const finalFileName = fileName || `group_${timestamp}.jpg`;
     const storagePath = `groups/${groupId}/${finalFileName}`;
     const storageRef = ref(storage, storagePath);
-    
-    let blob: Blob;
-    
-    if (Platform.OS === 'web') {
-      const response = await fetch(imageUri);
-      blob = await response.blob();
+    const metadata = { contentType: 'image/jpeg' };
+
+    let downloadURL: string;
+
+    if (imageUri.startsWith('data:image') || !imageUri.includes('://')) {
+      console.log('📤 Uploading group image as Base64 string...', storagePath);
+      const base64Data = imageUri.includes('base64,') ? imageUri.split('base64,')[1] : imageUri;
+      const snapshot = await uploadString(storageRef, base64Data, 'base64', metadata);
+      downloadURL = await getDownloadURL(snapshot.ref);
     } else {
-      const response = await fetch(imageUri);
-      blob = await response.blob();
+      // Prepare image for upload
+      const blob: any = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          resolve(xhr.response);
+        };
+        xhr.onerror = function (e) {
+          console.error('Blob conversion error:', e);
+          reject(new TypeError("Network request failed"));
+        };
+        xhr.responseType = "blob";
+        xhr.open("GET", imageUri, true);
+        xhr.send(null);
+      });
+
+      console.log('📤 Uploading group image blob...', storagePath);
+
+      const uploadTask = uploadBytesResumable(storageRef, blob, metadata);
+
+      downloadURL = await new Promise<string>((resolve, reject) => {
+        uploadTask.on('state_changed',
+          null,
+          (error) => reject(error),
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(url);
+          }
+        );
+      });
     }
-    
-    const uploadResult = await uploadBytes(storageRef, blob);
-    const downloadURL = await getDownloadURL(uploadResult.ref);
-    
-    console.log('✅ Group image uploaded successfully');
-    
+
+    console.log('✅ Group image uploaded successfully:', downloadURL);
+
     return {
       url: downloadURL,
       storagePath: storagePath
     };
-    
+
   } catch (error: any) {
     console.error('❌ Error uploading group image:', error);
     throw new Error(`Failed to upload group image: ${error.message}`);

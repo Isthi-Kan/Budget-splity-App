@@ -1,1 +1,2 @@
-export { default } from "../../src/screens/main/profile";
+export { ProfileScreen as default } from "../../src/screens/main";
+
