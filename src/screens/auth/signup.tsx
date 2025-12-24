@@ -1,37 +1,47 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { signUpUser } from "../../services/firebase/auth";
+import { useApp } from "../../store";
+import { signupAction } from "../../store/actions";
 
 const { width, height } = Dimensions.get("window");
 
 export default function Signup() {
   const router = useRouter();
+  const { state, dispatch } = useApp();
+  
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
-  const [loading, setLoading] = useState(false);
-  const [generalError, setGeneralError] = useState("");
+  
   const [errors, setErrors] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
+
+  // Clear global error on mount/unmount
+  useEffect(() => {
+    dispatch({ type: 'SET_ERROR', payload: null });
+    return () => {
+      dispatch({ type: 'SET_ERROR', payload: null });
+    };
+  }, []);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -87,31 +97,24 @@ export default function Signup() {
   const signup = async () => {
     if (!validateForm()) return;
 
-    setLoading(true);
-    setGeneralError(""); // Clear previous errors
-
     try {
       console.log("Starting signup process...");
 
-      // Use our signUpUser function which creates both Firebase Auth user and Firestore document
-      const user = await signUpUser(
+      const user = await signupAction(
+        dispatch,
         formData.email.trim(),
         formData.password,
-        formData.name ? formData.name.trim() : formData.email.trim() // Use name or fallback to email
+        formData.name ? formData.name.trim() : formData.email.trim()
       );
 
-      console.log(
-        "Account created successfully with Firestore document:",
-        user.uid
-      );
-      console.log("Email verification sent automatically");
-
-      setLoading(false);
-      router.replace("/(auth)/verify-email");
+      if (user) {
+        console.log("Account created successfully", user.uid);
+        console.log("Email verification sent automatically");
+        router.replace("/(auth)/verify-email");
+      }
     } catch (err: any) {
-      console.error("Signup error:", err.message);
-      setGeneralError(err.message);
-      setLoading(false);
+      // Errors are handled by the action dispatching SET_ERROR
+      console.error("Signup error catch block:", err.message);
     }
   };
 
@@ -120,8 +123,9 @@ export default function Signup() {
     if (errors[field]) {
       setErrors({ ...errors, [field]: "" });
     }
-    if (generalError) {
-      setGeneralError("");
+    // Clear global error when user interacts
+    if (state.error) {
+      dispatch({ type: 'SET_ERROR', payload: null });
     }
   };
 
@@ -220,18 +224,18 @@ export default function Signup() {
                   ) : null}
                 </View>
 
-                {generalError ? (
+                {state.error ? (
                   <View style={styles.generalErrorContainer}>
-                    <Text style={styles.generalErrorText}>{generalError}</Text>
+                    <Text style={styles.generalErrorText}>{state.error}</Text>
                   </View>
                 ) : null}
 
                 <TouchableOpacity
-                  style={[styles.button, loading && styles.buttonDisabled]}
+                  style={[styles.button, state.isLoading && styles.buttonDisabled]}
                   onPress={signup}
-                  disabled={loading}
+                  disabled={state.isLoading}
                 >
-                  {loading ? (
+                  {state.isLoading ? (
                     <ActivityIndicator color="white" />
                   ) : (
                     <Text style={styles.buttonText}>Create Account</Text>
@@ -298,6 +302,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     marginBottom: 40,
+    marginTop: 20,
   },
   title: {
     fontSize: 32,

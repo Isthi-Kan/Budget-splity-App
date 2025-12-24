@@ -1,41 +1,38 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { onAuthStateChanged, User } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
-  Dimensions,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Dimensions,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import InputModal from "../../components/InputModal";
-import { logoutUser } from "../../services/firebase/auth";
-import { auth } from "../../services/firebase/config";
-import {
-  getUserGroups,
-  joinGroupByInviteCode,
-} from "../../services/firebase/groups";
-import { Group } from "../../types";
+import { joinGroupByInviteCode } from "../../services/firebase/groups";
+import { useApp } from "../../store";
+import { fetchGroupsAction, logoutAction } from "../../store/actions";
+import { Group, User } from "../../types";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+
 
 // Component for user profile circle with initials
 const ProfileCircle = ({
   user,
   onPress,
 }: {
-  user: any;
+  user: User | null;
   onPress: () => void;
 }) => {
-  const getInitials = (user: any) => {
-    if (user?.displayName) {
-      return user.displayName
+  const getInitials = (currentUser: User | null) => {
+    if (currentUser?.name) {
+      return currentUser.name
         .split(" ")
         .map((name: string) => name[0])
         .join("")
@@ -67,102 +64,51 @@ const CurvedSeparator = () => {
   );
 };
 
-function HomeScreen() {
+export default function HomeScreen() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { state, dispatch } = useApp();
+  const { user, groups, isLoading: isGlobalLoading } = state;
+  
   const [refreshing, setRefreshing] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Firebase authentication state listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log(
-        "🔐 Auth state changed:",
-        user ? "User logged in" : "User logged out"
-      );
-      setUser(user);
-      setAuthLoading(false);
-
-      // If user is not authenticated, redirect to login
-      if (!user) {
-        router.replace("/(auth)/login");
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
   const loadGroups = async (forceRefresh = false) => {
     if (!user) {
       console.log("⚠️ No user found, skipping group load");
-      setLoading(false);
       return;
     }
 
-    console.log("📊 Loading groups for user:", user.uid, { forceRefresh });
-
-    // Don't show loading for cached requests
-    if (forceRefresh || groups.length === 0) {
-      setLoading(true);
-    }
-
-    try {
-      const startTime = Date.now();
-      const userGroups = await getUserGroups(user.uid, !forceRefresh);
-      const loadTime = Date.now() - startTime;
-
-      console.log("✅ Groups loaded:", {
-        count: userGroups.length,
-        loadTimeMs: loadTime,
-        cached: loadTime < 100,
-      });
-
-      // Filter out any null/undefined groups
-      const validGroups = userGroups.filter((group) => group && group.id);
-      setGroups(validGroups);
-
-      if (loadTime > 1000) {
-        console.warn("⚠️ Slow loading detected:", loadTime, "ms");
-      }
-    } catch (error) {
-      console.error("❌ Error loading groups:", error);
-      Alert.alert("Error", "Failed to load groups. Please try again.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    // If fetching in background (refreshing), don't set global loading if we already have groups
+    // But fetchGroupsAction sets loading if forceRefresh is true.
+    // Ideally, we want 'refreshing' state for Pull-to-Refresh.
+    
+    await fetchGroupsAction(dispatch, user.uid, forceRefresh);
+    setRefreshing(false);
   };
 
   useEffect(() => {
-    // Load groups immediately on mount and when user changes
-    if (user && !authLoading) {
-      loadGroups();
-
-      // Also preload in background without UI loading state
-      setTimeout(() => {
-        loadGroups(true);
-      }, 1000);
+    // Initial load when user is available
+    if (user && groups.length === 0) {
+      loadGroups(false);
     }
-  }, [user, authLoading]);
+  }, [user]); // Groups dependency removed to avoid loops, only load on user chage or empty
 
-  // Refresh groups when screen comes into focus (e.g., after creating a group)
+  // Refresh groups when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      if (user && !authLoading) {
-        console.log("🔍 Screen focused - refreshing groups...");
-        loadGroups(true); // Force refresh when screen comes into focus
+      if (user) {
+        // We can do a silent refresh here if needed
+        // fetchGroupsAction(dispatch, user.uid, true); 
+        // For now, let's just rely on initial load or manual refresh to save reads
       }
-    }, [user, authLoading])
+    }, [user])
   );
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadGroups(true); // Force refresh, bypass cache
+    loadGroups(true);
   };
 
   const handleProfilePress = () => {
@@ -185,12 +131,9 @@ function HomeScreen() {
 
   const handleLogoutConfirm = async () => {
     setShowLogoutModal(false);
-    try {
-      await logoutUser();
-      router.replace("/(auth)/login");
-    } catch (error: any) {
-      Alert.alert("Error", "Failed to logout");
-    }
+    await logoutAction(dispatch);
+    router.replace("/(auth)/login");
+    // Navigation protection in _layout will also handle the redirect, but explicit replace is fine.
   };
 
   const handleLogoutCancel = () => {
@@ -219,6 +162,7 @@ function HomeScreen() {
 
     try {
       console.log("🔗 Attempting to join group with code:", code);
+      // Join group logic is not yet in store actions, using service directly
       await joinGroupByInviteCode(code.trim().toUpperCase(), user.uid);
       Alert.alert("Success", "Joined group successfully!");
       loadGroups(true); // Force refresh to show new group
@@ -233,11 +177,7 @@ function HomeScreen() {
   };
 
   const renderGroupItem = ({ item }: { item: Group }) => {
-    // Add null safety checks
-    if (!item) {
-      console.warn("⚠️ Null group item received");
-      return null;
-    }
+    if (!item) return null;
 
     return (
       <TouchableOpacity
@@ -288,8 +228,9 @@ function HomeScreen() {
     </View>
   );
 
-  // Show loading screen while authenticating or fetching groups
-  if (authLoading || loading) {
+  // Show loading screen only on initial load if we have no groups
+  // If refreshing, we show the refresh control instead
+  if (isGlobalLoading && groups.length === 0) {
     return (
       <View style={styles.modernContainer}>
         <LinearGradient
@@ -313,7 +254,7 @@ function HomeScreen() {
           <View style={styles.welcomeSection}>
             <Text style={styles.modernTitle}>My Groups</Text>
             <Text style={styles.modernSubtitle}>
-              Hello, {user?.displayName || user?.email?.split("@")[0] || "User"}
+              Hello, {user?.name || user?.email?.split("@")[0] || "User"}
               ! 👋
             </Text>
           </View>
@@ -386,7 +327,7 @@ function HomeScreen() {
               <View style={styles.userInfo}>
                 <View style={styles.largeProfileCircle}>
                   <Text style={styles.largeProfileInitials}>
-                    {user?.displayName
+                    {user?.name
                       ?.split(" ")
                       .map((name: string) => name[0])
                       .join("")
@@ -397,7 +338,7 @@ function HomeScreen() {
                   </Text>
                 </View>
                 <Text style={styles.userName}>
-                  {user?.displayName || "User"}
+                  {user?.name || "User"}
                 </Text>
                 <Text style={styles.userEmail}>
                   {user?.email || "No email"}
@@ -488,6 +429,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingTop: 50,
+  },
+
+  loadingText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
   },
 
   headerContent: {
@@ -722,6 +669,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "flex-end",
+    zIndex: 100,
   },
 
   modalBackdrop: {
@@ -798,56 +746,48 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
   },
 
+  profileActionText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#334155",
+  },
+
   logoutAction: {
     backgroundColor: "#fef2f2",
     borderColor: "#fecaca",
   },
 
-  profileActionText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
-  },
-
   logoutActionText: {
-    color: "#dc2626",
+    color: "#ef4444",
   },
 
-  // Loading State
-  loadingText: {
-    fontSize: 18,
-    color: "white",
-    fontWeight: "500",
-  },
-
-  // Logout Confirmation Modal
+  // Logout Confirmation Modal (nested inside modalOverlay)
   logoutConfirmModal: {
     backgroundColor: "white",
-    borderRadius: 16,
-    marginHorizontal: 20,
-    marginTop: 200, // Add top margin to position below the blue section
+    borderRadius: 20,
+    marginHorizontal: 30,
+    marginTop: height / 3, // Center vertically roughly
+    padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 8,
   },
 
   logoutModalHeader: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
     alignItems: "center",
+    marginBottom: 16,
   },
 
   logoutModalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "bold",
     color: "#1e293b",
   },
 
   logoutModalContent: {
-    padding: 24,
+    alignItems: "center",
   },
 
   logoutModalMessage: {
@@ -855,7 +795,6 @@ const styles = StyleSheet.create({
     color: "#64748b",
     textAlign: "center",
     marginBottom: 24,
-    lineHeight: 24,
   },
 
   logoutModalButtons: {
@@ -866,24 +805,22 @@ const styles = StyleSheet.create({
   logoutModalButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: "center",
   },
 
   cancelButton: {
-    backgroundColor: "#f8fafc",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+    backgroundColor: "#f1f5f9",
   },
 
   confirmButton: {
-    backgroundColor: "#dc2626",
+    backgroundColor: "#ef4444",
   },
 
   cancelButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#374151",
+    color: "#64748b",
   },
 
   confirmButtonText: {
@@ -892,5 +829,3 @@ const styles = StyleSheet.create({
     color: "white",
   },
 });
-
-export default HomeScreen;

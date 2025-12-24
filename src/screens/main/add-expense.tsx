@@ -3,23 +3,23 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { auth } from "../../services/firebase/config";
 import { addExpense } from "../../services/firebase/expenses";
 import { getGroup } from "../../services/firebase/groups";
 import { uploadExpenseProofWithProgress } from "../../services/firebase/storage";
+import { useApp } from "../../store";
 import { Expense } from "../../types";
 
 const { width, height } = Dimensions.get("window");
@@ -27,7 +27,8 @@ const { width, height } = Dimensions.get("window");
 export default function AddExpense() {
   const router = useRouter();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
-  const user = auth.currentUser;
+  const { state } = useApp();
+  const { user } = state;
 
   const [formData, setFormData] = useState({
     title: "",

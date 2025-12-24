@@ -3,22 +3,78 @@ import { useRouter } from "expo-router";
 import { reload, sendEmailVerification } from "firebase/auth";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { auth } from "../../services/firebase/config";
+import { useApp } from "../../store";
+import { Action } from "../../store/types";
 
 const { width, height } = Dimensions.get("window");
 
+// We might want to move these to actions.ts properly, but for now let's wrap them here or use them directly
+// Since they are specific auth flows, we can keep using services but dispatch global loading states if needed.
+// Ideally, we should add 'sendVerificationEmailAction' and 'checkVerificationAction' to store.
+
+const sendVerificationEmailAction = async (dispatch: React.Dispatch<Action>) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+        if (auth.currentUser) {
+            await sendEmailVerification(auth.currentUser);
+            Alert.alert("Success", "Verification email sent! Please check your inbox.");
+            return true;
+        }
+    } catch (error: any) {
+        console.error("Error sending verification email:", error);
+        Alert.alert("Error", "Failed to send verification email. Please try again.");
+    } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+    }
+    return false;
+};
+
+const checkVerificationAction = async (dispatch: React.Dispatch<Action>) => {
+     // No global loading for this one as it has specific UI state? 
+     // Or we can use global loading. The original used local 'checkingVerification'.
+     // Let's use local state for specific checking to avoid blocking the whole UI if not desired, 
+     // or use global if we want a uniform loading overlay.
+     // For now, let's stick to local state for specific button loading BUT update global user on success.
+     
+     try {
+         if (auth.currentUser) {
+             await reload(auth.currentUser);
+             if (auth.currentUser.emailVerified) {
+                 // Update global store user
+                 const updatedUser = {
+                     uid: auth.currentUser.uid,
+                     email: auth.currentUser.email || '',
+                     name: auth.currentUser.displayName || undefined,
+                     emailVerified: true,
+                     createdAt: new Date().toISOString(), // This is imperfect vs fetching from DB
+                     photoURL: auth.currentUser.photoURL || undefined,
+                 };
+                 dispatch({ type: 'SET_USER', payload: updatedUser });
+                 return true;
+             }
+         }
+     } catch (error) {
+         console.error("Error checking verification", error);
+     }
+     return false;
+}
+
 export default function VerifyEmail() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const { state, dispatch } = useApp();
+  const { user, isLoading } = state; 
+  
+  // Local state for specific UI behaviors
   const [resendCooldown, setResendCooldown] = useState(0);
   const [checkingVerification, setCheckingVerification] = useState(false);
   const [showInitialMessage, setShowInitialMessage] = useState(true);
@@ -34,6 +90,13 @@ export default function VerifyEmail() {
   }, [showInitialMessage]);
 
   useEffect(() => {
+    if (user?.emailVerified) {
+        // Redirect if already verified (handled by protection usually, but explicit here is good)
+        router.replace("/(tabs)/home");
+    }
+  }, [user]);
+
+  useEffect(() => {
     let interval: any;
     if (resendCooldown > 0) {
       interval = setInterval(() => {
@@ -43,52 +106,27 @@ export default function VerifyEmail() {
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
-  const sendVerificationEmail = async () => {
-    if (!auth.currentUser || resendCooldown > 0) return;
-
-    setLoading(true);
-    try {
-      await sendEmailVerification(auth.currentUser);
-      Alert.alert(
-        "Success",
-        "Verification email sent! Please check your inbox."
-      );
-      setResendCooldown(60); // 60 second cooldown
-    } catch (error: any) {
-      console.error("Error sending verification email:", error);
-      Alert.alert(
-        "Error",
-        "Failed to send verification email. Please try again."
-      );
-    } finally {
-      setLoading(false);
+  const handleSendVerificationEmail = async () => {
+    if (resendCooldown > 0) return;
+    const success = await sendVerificationEmailAction(dispatch);
+    if (success) {
+        setResendCooldown(60);
     }
   };
 
   const handleCheckVerification = async () => {
-    if (!auth.currentUser) return;
-
     setCheckingVerification(true);
-    try {
-      await reload(auth.currentUser);
-
-      if (auth.currentUser.emailVerified) {
-        router.replace("/(tabs)");
-      } else {
-        Alert.alert(
-          "Not Verified",
-          "Please verify your email first and try again."
-        );
-      }
-    } catch (error: any) {
-      console.error("Error checking verification:", error);
-      Alert.alert("Error", "Failed to check verification status.");
-    } finally {
-      setCheckingVerification(false);
+    const success = await checkVerificationAction(dispatch);
+    setCheckingVerification(false);
+    
+    if (success) {
+        router.replace("/(tabs)/home");
+    } else {
+        Alert.alert("Not Verified", "Please verify your email first and try again.");
     }
   };
 
-  const userEmail = auth.currentUser?.email || "";
+  const userEmail = user?.email || auth.currentUser?.email || "";
 
   return (
     <View style={styles.container}>
@@ -140,12 +178,12 @@ export default function VerifyEmail() {
           <TouchableOpacity
             style={[
               styles.secondaryButton,
-              (loading || resendCooldown > 0) && styles.buttonDisabled,
+              (isLoading || resendCooldown > 0) && styles.buttonDisabled,
             ]}
-            onPress={sendVerificationEmail}
-            disabled={loading || resendCooldown > 0}
+            onPress={handleSendVerificationEmail}
+            disabled={isLoading || resendCooldown > 0}
           >
-            {loading ? (
+            {isLoading ? (
               <ActivityIndicator color="#4c63d2" />
             ) : (
               <Text style={styles.secondaryButtonText}>

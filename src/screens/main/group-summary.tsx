@@ -3,20 +3,20 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Alert,
-  Dimensions,
-  Image,
-  Modal,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Dimensions,
+    Image,
+    Modal,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { auth } from "../../services/firebase/config";
 import { getGroupSummary } from "../../services/firebase/expenses";
 import { getGroup } from "../../services/firebase/groups";
+import { useApp } from "../../store";
 import { Group, GroupSummary } from "../../types";
 
 const { width } = Dimensions.get("window");
@@ -24,7 +24,8 @@ const { width } = Dimensions.get("window");
 export default function GroupSummaryScreen() {
   const router = useRouter();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
-  const user = auth.currentUser;
+  const { state } = useApp();
+  const { user } = state;
 
   const [group, setGroup] = useState<Group | null>(null);
   const [summary, setSummary] = useState<GroupSummary | null>(null);
@@ -798,13 +799,13 @@ const styles = StyleSheet.create({
   },
   spenderName: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
     color: "#1f2937",
   },
   spenderAmount: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#10b981",
+    color: "#3b82f6",
   },
   categoryItem: {
     flexDirection: "row",
@@ -813,7 +814,12 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     padding: 16,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   categoryName: {
     fontSize: 16,
@@ -823,11 +829,11 @@ const styles = StyleSheet.create({
   categoryAmount: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#3b82f6",
+    color: "#1f2937",
   },
   balanceCard: {
     backgroundColor: "white",
-    padding: 20,
+    padding: 16,
     borderRadius: 16,
     marginBottom: 16,
     shadowColor: "#000",
@@ -839,30 +845,30 @@ const styles = StyleSheet.create({
   balanceHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   balanceAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#3b82f6",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#dbeafe",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: 12,
   },
   balanceInitials: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
-    color: "white",
+    color: "#3b82f6",
   },
   balanceInfo: {
     flex: 1,
   },
   balanceName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: "#1f2937",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   missingProfileText: {
     fontSize: 12,
@@ -871,33 +877,33 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   balanceDetails: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#6b7280",
   },
   balanceAmount: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignSelf: "flex-end",
+    backgroundColor: "#f8fafc",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  balanceText: {
+    fontSize: 16,
+    fontWeight: "bold",
   },
   positiveBalance: {
-    backgroundColor: "#dcfce7",
+    backgroundColor: "#d1fae5",
+  },
+  positiveText: {
+    color: "#10b981",
   },
   negativeBalance: {
     backgroundColor: "#fee2e2",
   },
+  negativeText: {
+    color: "#ef4444",
+  },
   zeroBalance: {
     backgroundColor: "#f3f4f6",
-  },
-  balanceText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  positiveText: {
-    color: "#16a34a",
-  },
-  negativeText: {
-    color: "#dc2626",
   },
   zeroText: {
     color: "#6b7280",
@@ -907,6 +913,8 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 16,
     marginBottom: 16,
+    flexDirection: "column",
+    alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -916,48 +924,93 @@ const styles = StyleSheet.create({
   settlementHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     marginBottom: 16,
   },
   settlementAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#3b82f6",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#dbeafe",
     justifyContent: "center",
     alignItems: "center",
   },
   settlementInitials: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
-    color: "white",
+    color: "#3b82f6",
   },
   settlementArrow: {
     marginHorizontal: 16,
   },
   settlementText: {
     fontSize: 16,
+    color: "#4b5563",
     textAlign: "center",
-    color: "#1f2937",
     lineHeight: 24,
   },
   settlementFrom: {
     fontWeight: "600",
-    color: "#dc2626",
+    color: "#1f2937",
   },
   settlementTo: {
     fontWeight: "600",
-    color: "#16a34a",
+    color: "#1f2937",
   },
   settlementAmount: {
     fontWeight: "bold",
-    color: "#3b82f6",
+    color: "#10b981",
+    fontSize: 18,
+  },
+  monthItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "white",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  monthName: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#1f2937",
+  },
+  monthAmount: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+  },
+  analyticsCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "white",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  analyticsLabel: {
+    fontSize: 16,
+    color: "#4b5563",
+  },
+  analyticsValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#1f2937",
   },
   emptyState: {
     alignItems: "center",
     padding: 40,
-    backgroundColor: "white",
-    borderRadius: 16,
   },
   emptyTitle: {
     fontSize: 20,
@@ -970,44 +1023,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#6b7280",
     textAlign: "center",
-  },
-  monthItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  monthName: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#1f2937",
-  },
-  monthAmount: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#3b82f6",
-  },
-  analyticsCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "white",
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  analyticsLabel: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#1f2937",
-  },
-  analyticsValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#3b82f6",
   },
   imageModalOverlay: {
     flex: 1,
@@ -1022,15 +1037,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   fullScreenImage: {
-    width: "90%",
-    height: "70%",
+    width: width,
+    height: "80%",
   },
   closeButton: {
     position: "absolute",
     top: 50,
     right: 20,
-    padding: 12,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    padding: 10,
+    backgroundColor: "rgba(0,0,0,0.5)",
     borderRadius: 20,
   },
 });

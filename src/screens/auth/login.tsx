@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,17 +13,25 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { loginUser } from "../../services/firebase/auth";
+import { useApp } from "../../store";
+import { loginAction } from "../../store/actions";
 
 const { width, height } = Dimensions.get("window");
 
 export default function Login() {
   const router = useRouter();
+  const { state, dispatch } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
-  const [generalError, setGeneralError] = useState("");
+
+  // Clear global error on mount/unmount
+  useEffect(() => {
+    dispatch({ type: 'SET_ERROR', payload: null });
+    return () => {
+      dispatch({ type: 'SET_ERROR', payload: null });
+    };
+  }, []);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -63,33 +71,14 @@ export default function Login() {
     }
 
     console.log("✅ Form validation passed");
-    setLoading(true);
-    setGeneralError(""); // Clear previous errors
+    
+    // Dispatching login action via thunk
+    const user = await loginAction(dispatch, email.trim(), password);
 
-    // Add timeout protection
-    const loginTimeout = setTimeout(() => {
-      console.error("⏰ Login timeout after 30 seconds");
-      setLoading(false);
-      setGeneralError(
-        "Login timed out. Please check your internet connection and try again."
-      );
-    }, 30000); // 30 second timeout
-
-    try {
-      console.log("🔄 Attempting Firebase login...");
-      const user = await loginUser(email.trim(), password);
-      console.log("✅ Firebase login successful", {
-        uid: user.uid,
-        email: user.email,
-      });
-
-      // Clear timeout on success
-      clearTimeout(loginTimeout);
-
+    if (user) {
       // Check if email is verified
       if (!user.emailVerified) {
         console.log("⚠️ Email not verified");
-        setGeneralError("Please verify your email address before continuing.");
         Alert.alert(
           "Email Not Verified",
           "Please verify your email address before continuing.",
@@ -109,22 +98,22 @@ export default function Login() {
             },
           ]
         );
-        setLoading(false); // Fix: Set loading to false before return
         return;
       }
 
       console.log("🎉 Login successful, navigating to home");
       router.replace("/(tabs)/home");
-    } catch (err: any) {
-      console.error("❌ Login error:", err);
-      clearTimeout(loginTimeout);
-      const errorMessage = err.message || "Login failed. Please try again.";
-      setGeneralError(errorMessage);
-      console.error("Login error details:", err);
-    } finally {
-      clearTimeout(loginTimeout);
-      console.log("🔄 Setting loading to false");
-      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (setter: (val: string) => void, value: string, field: string) => {
+    setter(value);
+    if (errors[field as keyof typeof errors]) {
+      setErrors({ ...errors, [field]: "" });
+    }
+    // Clear global error when user interacts
+    if (state.error) {
+      dispatch({ type: 'SET_ERROR', payload: null });
     }
   };
 
@@ -151,11 +140,7 @@ export default function Login() {
                   <TextInput
                     placeholder="Enter your email"
                     value={email}
-                    onChangeText={(text) => {
-                      setEmail(text);
-                      if (errors.email) setErrors({ ...errors, email: "" });
-                      if (generalError) setGeneralError("");
-                    }}
+                    onChangeText={(text) => handleInputChange(setEmail, text, 'email')}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoComplete="email"
@@ -175,12 +160,7 @@ export default function Login() {
                     placeholder="Enter your password"
                     secureTextEntry
                     value={password}
-                    onChangeText={(text) => {
-                      setPassword(text);
-                      if (errors.password)
-                        setErrors({ ...errors, password: "" });
-                      if (generalError) setGeneralError("");
-                    }}
+                    onChangeText={(text) => handleInputChange(setPassword, text, 'password')}
                     autoComplete="password"
                     style={[
                       styles.input,
@@ -192,18 +172,18 @@ export default function Login() {
                   ) : null}
                 </View>
 
-                {generalError ? (
+                {state.error ? (
                   <View style={styles.generalErrorContainer}>
-                    <Text style={styles.generalErrorText}>{generalError}</Text>
+                    <Text style={styles.generalErrorText}>{state.error}</Text>
                   </View>
                 ) : null}
 
                 <TouchableOpacity
-                  style={[styles.button, loading && styles.buttonDisabled]}
+                  style={[styles.button, state.isLoading && styles.buttonDisabled]}
                   onPress={login}
-                  disabled={loading}
+                  disabled={state.isLoading}
                 >
-                  {loading ? (
+                  {state.isLoading ? (
                     <ActivityIndicator color="white" />
                   ) : (
                     <Text style={styles.buttonText}>Sign In</Text>

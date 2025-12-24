@@ -1,29 +1,30 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Alert,
-  FlatList,
-  Modal,
-  RefreshControl,
-  Share,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    FlatList,
+    Modal,
+    RefreshControl,
+    Share,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { auth } from "../../services/firebase/config";
 import {
-  calculateGroupSummary,
-  getGroupExpenses,
+    calculateGroupSummary,
+    getGroupExpenses,
 } from "../../services/firebase/expenses";
 import { getGroup } from "../../services/firebase/groups";
 import { getUserDocument } from "../../services/firebase/users";
+import { useApp } from "../../store";
 import { Balance, Expense, Group, User } from "../../types";
 
 export default function GroupDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const user = auth.currentUser;
+  const { state } = useApp();
+  const { user } = state;
 
   console.log("🔍 GroupDetail component initialized with ID:", id);
 

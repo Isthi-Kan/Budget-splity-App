@@ -4,6 +4,7 @@ export interface User {
   name?: string;
   email: string;
   photoURL?: string;
+  emailVerified?: boolean;
   createdAt: any;
   lastSeen?: any;
 }
@@ -120,7 +121,7 @@ export interface GroupSummary {
   lastUpdated: any;
   expensesByCategory?: Record<string, number>;
   expensesByMonth?: Record<string, number>;
-  topSpenders?: Array<{uid: string; name?: string; amount: number}>;
+  topSpenders?: Array<{ uid: string; name?: string; amount: number }>;
 }
 
 // Navigation types

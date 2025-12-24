@@ -1,26 +1,27 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { auth } from "../../services/firebase/config";
 import {
-  addMemberByEmail,
-  clearGroupsCache,
-  createGroup,
+    addMemberByEmail,
+    clearGroupsCache,
+    createGroup,
 } from "../../services/firebase/groups";
+import { useApp } from "../../store";
 
 export default function CreateGroup() {
   const router = useRouter();
-  const user = auth.currentUser;
+  const { state } = useApp();
+  const { user } = state;
 
   const [groupName, setGroupName] = useState("");
   const [description, setDescription] = useState("");
@@ -37,12 +38,6 @@ export default function CreateGroup() {
     }
 
     if (!groupName.trim()) {
-      Alert.alert("Error", "Please enter a group name");
-      return;
-    }
-
-    if (!groupName.trim()) {
-      console.log("❌ Group name validation failed");
       Alert.alert("Error", "Please enter a group name");
       return;
     }
