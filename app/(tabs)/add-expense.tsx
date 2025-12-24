@@ -1,2 +1,2 @@
-// Tabs route - Add Expense
-export { default } from "../../src/screens/main/add-expense";
+export { AddExpenseScreen as default } from "../../src/screens/main";
+
