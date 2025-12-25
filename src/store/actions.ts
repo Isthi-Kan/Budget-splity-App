@@ -24,7 +24,7 @@ export const signupAction = async (dispatch: React.Dispatch<Action>, email: stri
         dispatch({ type: 'SET_USER', payload: user });
         return user;
     } catch (error: any) {
-        console.error("Signup action error:", error);
+        
         dispatch({ type: 'SET_ERROR', payload: error.message || "Signup failed" });
         return null;
     } finally {
@@ -49,7 +49,7 @@ export const loginAction = async (dispatch: React.Dispatch<Action>, email: strin
         dispatch({ type: 'SET_USER', payload: user });
         return user;
     } catch (error: any) {
-        console.error("Login action error:", error);
+        
         dispatch({ type: 'SET_ERROR', payload: error.message || "Login failed" });
         return null;
     } finally {
@@ -63,7 +63,7 @@ export const logoutAction = async (dispatch: React.Dispatch<Action>) => {
         dispatch({ type: 'LOGOUT' });
         return true;
     } catch (error: any) {
-        console.error("Logout action error:", error);
+        
         return false;
     }
 };
@@ -87,7 +87,7 @@ export const updateProfileAction = async (dispatch: React.Dispatch<Action>, uid:
         dispatch({ type: 'UPDATE_USER', payload: updates as Partial<User> });
         return true;
     } catch (error: any) {
-        console.error("Update profile action error:", error);
+        
         dispatch({ type: 'SET_ERROR', payload: error.message || "Update failed" });
         return false;
     } finally {
@@ -103,7 +103,7 @@ export const fetchGroupsAction = async (dispatch: React.Dispatch<Action>, userId
         const groups = await getUserGroups(userId, !forceRefresh);
         dispatch({ type: 'SET_GROUPS', payload: groups });
     } catch (error: any) {
-        console.error("Fetch groups action error:", error);
+        
         dispatch({ type: 'SET_ERROR', payload: error.message || "Failed to fetch groups" });
     } finally {
         if (forceRefresh) {

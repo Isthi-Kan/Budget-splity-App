@@ -1,16 +1,16 @@
 // Firestore groups service
 import {
-    addDoc,
-    arrayUnion,
-    collection,
-    deleteDoc,
-    doc,
-    getDoc,
-    getDocs,
-    query,
-    serverTimestamp,
-    updateDoc,
-    where
+  addDoc,
+  arrayUnion,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where
 } from 'firebase/firestore';
 import { Group, User } from '../../types';
 import { auth, db } from './config';
@@ -24,15 +24,15 @@ export const createGroup = async (
   description?: string, 
   initialMembers: string[] = []
 ): Promise<string> => {
-  console.log("🏗️ CreateGroup called", { hostUid, name, description, initialMembers });
+  
   
   try {
-    console.log("🔄 Generating invite code...");
+    
     const inviteCode = generateInviteCode();
-    console.log("✅ Invite code generated:", inviteCode);
+    
     
     const members = [hostUid, ...initialMembers.filter(uid => uid !== hostUid)];
-    console.log("👥 Members list:", members);
+    
     
     const groupData: Omit<Group, 'id'> = {
       name,
@@ -42,18 +42,18 @@ export const createGroup = async (
       members,
       createdAt: serverTimestamp(),
     };
-    console.log("📊 Group data prepared:", groupData);
+    
 
-    console.log("🔄 Adding document to Firestore...");
+    
     const docRef = await addDoc(collection(db, 'groups'), groupData);
-    console.log("✅ Document added successfully, ID:", docRef.id);
+    
     
     // Clear cache so new group appears immediately
     clearGroupsCache(hostUid);
     
     return docRef.id;
   } catch (error: any) {
-    console.error("❌ CreateGroup error:", error);
+    
     throw new Error(`Failed to create group: ${error.message}`);
   }
 };
@@ -71,69 +71,48 @@ const CACHE_DURATION = 30000; // 30 seconds
 export const clearGroupsCache = (uid?: string) => {
   if (uid) {
     delete groupsCache[uid];
-    console.log("🗑️ Cleared groups cache for user:", uid);
+    
   } else {
     groupsCache = {};
-    console.log("🗑️ Cleared all groups cache");
+    
   }
 };
 
 export const getUserGroups = async (uid: string, useCache = true): Promise<Group[]> => {
-  console.log("🔍 getUserGroups called for uid:", uid);
-  console.log("🔐 Auth state check:", {
-    currentUser: auth.currentUser?.uid,
-    isAuthenticated: !!auth.currentUser,
-    emailVerified: auth.currentUser?.emailVerified
-  });
+  
   
   // Check cache first for instant loading
   if (useCache && groupsCache[uid]) {
     const cached = groupsCache[uid];
     const isExpired = Date.now() - cached.timestamp > CACHE_DURATION;
     if (!isExpired) {
-      console.log("⚡ Returning cached groups instantly:", cached.groups.length);
+      
       return cached.groups;
     }
-    console.log("🗑️ Cache expired, fetching fresh data");
+    
   }
   
   try {
     // Double-check authentication before query
     if (!auth.currentUser) {
-      console.error("❌ No authenticated user found");
       throw new Error("User not authenticated");
     }
     
     if (auth.currentUser.uid !== uid) {
-      console.warn("⚠️ UID mismatch:", {
-        requestedUid: uid,
-        actualUid: auth.currentUser.uid
-      });
+      // Continue; the query below still scopes to the provided uid
     }
     
-    console.log("🔄 Executing fast Firestore query...");
+    
     const startTime = Date.now();
     
     // Use the simplest possible query
     const groupsRef = collection(db, 'groups');
     const q = query(groupsRef, where('members', 'array-contains', uid));
     
-    console.log("📊 About to execute query:", {
-      collection: 'groups',
-      whereField: 'members',
-      whereValue: uid
-    });
-    
     const querySnapshot = await getDocs(q);
     const queryTime = Date.now() - startTime;
     
-    console.log("⚡ Fast query completed:", {
-      documentsFound: querySnapshot.docs.length,
-      queryTimeMs: queryTime
-    });
-    
     if (querySnapshot.empty) {
-      console.log("📋 No groups found");
       groupsCache[uid] = { groups: [], timestamp: Date.now() };
       return [];
     }
@@ -159,13 +138,13 @@ export const getUserGroups = async (uid: string, useCache = true): Promise<Group
     // Cache for instant future loads
     groupsCache[uid] = { groups, timestamp: Date.now() };
     
-    console.log("✅ Groups loaded and cached:", groups.length, "in", queryTime, "ms");
+    
     return groups;
   } catch (error: any) {
-    console.error("❌ getUserGroups error:", error);
+    
     // Return cached data if available, even if expired
     if (groupsCache[uid]) {
-      console.log("⚠️ Returning stale cache due to error");
+      
       return groupsCache[uid].groups;
     }
     throw new Error(`Failed to get user groups: ${error.message}`);
@@ -196,13 +175,13 @@ export const getGroup = async (groupId: string): Promise<Group | null> => {
     return null;
   } catch (error: any) {
     if (error.message?.includes('timeout')) {
-      console.error("❌ Group query timed out for group:", groupId);
+      
       throw new Error('Request timed out. Please check your internet connection and try again.');
     } else if (error.code === 'permission-denied') {
-      console.error("❌ Permission denied for group:", groupId);
+      
       throw new Error('You do not have permission to access this group.');
     } else {
-      console.error("❌ Error getting group:", error);
+      
       throw new Error(`Failed to get group: ${error.message || 'Unknown error'}`);
     }
   }
@@ -212,10 +191,10 @@ export const getGroup = async (groupId: string): Promise<Group | null> => {
  * Add member to group by email
  */
 export const addMemberByEmail = async (groupId: string, email: string): Promise<void> => {
-  console.log("📧 AddMemberByEmail called", { groupId, email });
+  
   
   try {
-    console.log("🔍 Searching for user by email...");
+    
     // First, find user by email
     const usersQuery = query(
       collection(db, 'users'),
@@ -223,26 +202,26 @@ export const addMemberByEmail = async (groupId: string, email: string): Promise<
     );
     
     const userSnapshot = await getDocs(usersQuery);
-    console.log("📊 User query result:", { empty: userSnapshot.empty, size: userSnapshot.size });
+    
     
     if (userSnapshot.empty) {
-      console.log("❌ User not found with email:", email);
+      
       throw new Error('User not found with this email address');
     }
     
     const userDoc = userSnapshot.docs[0];
     const uid = userDoc.id;
-    console.log("✅ User found:", { uid, email });
+    
     
     // Add user to group members
-    console.log("🔄 Adding user to group...");
+    
     const groupRef = doc(db, 'groups', groupId);
     await updateDoc(groupRef, {
       members: arrayUnion(uid)
     });
-    console.log("✅ User added to group successfully");
+    
   } catch (error: any) {
-    console.error("❌ AddMemberByEmail error:", error);
+    
     throw new Error(`Failed to add member: ${error.message}`);
   }
 };

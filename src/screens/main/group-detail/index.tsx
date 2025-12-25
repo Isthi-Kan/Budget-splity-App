@@ -143,7 +143,6 @@ export default function GroupDetailScreen() {
       const summary = await calculateGroupSummary(id);
       setBalances(summary.balances);
     } catch (error) {
-      console.error("Error loading group data:", error);
       Alert.alert("Error", "Failed to load group data");
     } finally {
       setLoading(false);
@@ -171,9 +170,7 @@ export default function GroupDetailScreen() {
         message: `Join my expense group "${group.name}" on Splitify with invite code: ${group.inviteCode}`,
         title: "Join Splitify Group",
       });
-    } catch (error) {
-      console.error("Error sharing:", error);
-    }
+    } catch (error) {}
   };
 
   const handleShowMembers = async () => {
@@ -209,7 +206,6 @@ export default function GroupDetailScreen() {
       );
       setMembers(memberData);
     } catch (error) {
-      console.error("Error loading members:", error);
     } finally {
       setLoadingMembers(false);
     }

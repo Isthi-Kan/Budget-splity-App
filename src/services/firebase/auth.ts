@@ -26,9 +26,9 @@ export const signUpUser = async (email: string, password: string, displayName?: 
     // Send email verification - make this blocking to ensure it's sent
     try {
       await sendEmailVerification(user);
-      console.log("Verification email sent successfully");
+      
     } catch (emailError: any) {
-      console.error("Failed to send verification email:", emailError);
+      
       // Don't fail signup but log the error
     }
     
@@ -39,52 +39,44 @@ export const signUpUser = async (email: string, password: string, displayName?: 
 };
 
 export const loginUser = async (email: string, password: string) => {
-  console.log("🔑 Firebase loginUser called", { email });
+  
   
   try {
-    console.log("🔄 Calling signInWithEmailAndPassword...");
+    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    console.log("✅ signInWithEmailAndPassword successful");
+    
     
     const user = userCredential.user;
-    console.log("👤 User object:", {
-      uid: user.uid,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      displayName: user.displayName
-    });
     
     // Check if user document exists in Firestore (fallback for old users)
-    console.log("🔍 Checking for existing user document...");
+    
     const existingUserDoc = await getUserDocument(user.uid);
     
     if (!existingUserDoc) {
-      console.log("📝 User document not found - creating fallback document for legacy user...");
+      
       try {
         await createUserDocument(user.uid, user.email!, user.displayName || '');
-        console.log("✅ Fallback user document created successfully");
+        
       } catch (docError: any) {
-        console.error("❌ Failed to create fallback user document:", docError);
+        
         // Don't fail login if user document creation fails
       }
     } else {
-      console.log("✅ User document already exists");
+      
     }
     
     // Update last seen timestamp
     try {
       await updateLastSeen(user.uid);
-      console.log("✅ Last seen updated successfully");
+      
     } catch (lastSeenError: any) {
-      console.error("⚠️ Failed to update last seen:", lastSeenError);
+      
       // Don't fail login if last seen update fails
     }
     
     return user;
   } catch (error: any) {
-    console.error("❌ Firebase auth error:", error);
-    console.error("Error code:", error.code);
-    console.error("Error message:", error.message);
+    
     throw new Error(getAuthErrorMessage(error.code));
   }
 };
@@ -100,34 +92,26 @@ export const logoutUser = async () => {
 // Email verification functions
 export const sendVerificationEmail = async () => {
   try {
-    console.log("🔍 Starting email verification process...");
+    
     
     if (!auth.currentUser) {
-      console.error("❌ No user is currently signed in");
+      
       throw new Error("No user is currently signed in.");
     }
     
     const user = auth.currentUser;
-    console.log("📋 User details:", {
-      uid: user.uid,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      isAnonymous: user.isAnonymous,
-      providerData: user.providerData
-    });
     
     // Force refresh user data to ensure we have latest info
     await user.reload();
-    console.log("🔄 User data refreshed");
+    
     
     // Check if email is already verified after refresh
     if (user.emailVerified) {
-      console.log("✅ Email is already verified, no need to send");
+      
       throw new Error("Email is already verified.");
     }
     
-    console.log("📧 Attempting to send verification email to:", user.email);
-    console.log("🔧 Firebase Auth domain:", auth.app.options.authDomain);
+    
     
     // Send verification email with action code settings for better debugging
     const actionCodeSettings = {
@@ -137,9 +121,7 @@ export const sendVerificationEmail = async () => {
     
     await sendEmailVerification(user, actionCodeSettings);
     
-    console.log("✅ sendEmailVerification() completed successfully");
-    console.log("📬 Email should be sent to:", user.email);
-    console.log("⏰ Current time:", new Date().toISOString());
+    
     
     return {
       success: true,
@@ -147,11 +129,6 @@ export const sendVerificationEmail = async () => {
       timestamp: new Date().toISOString()
     };
   } catch (error: any) {
-    console.error("❌ Email verification error details:", {
-      code: error.code,
-      message: error.message,
-      stack: error.stack
-    });
     
     // Check for specific Firebase error codes
     if (error.code === 'auth/too-many-requests') {
@@ -168,39 +145,28 @@ export const sendVerificationEmail = async () => {
 
 export const checkEmailVerification = async () => {
   try {
-    console.log("🔍 Checking email verification status...");
+    
     
     if (!auth.currentUser) {
-      console.error("❌ No current user found");
+      
       throw new Error("No user is currently signed in.");
     }
     
     const user = auth.currentUser;
-    console.log("👤 Current user before reload:", {
-      uid: user.uid,
-      email: user.email,
-      emailVerified: user.emailVerified
-    });
     
     // Force reload user data from Firebase servers
     await reload(user);
-    console.log("🔄 User data reloaded from server");
     
-    console.log("👤 Current user after reload:", {
-      uid: user.uid,
-      email: user.email,
-      emailVerified: user.emailVerified
-    });
     
     if (user.emailVerified) {
-      console.log("✅ Email verification confirmed!");
+      
       return true;
     } else {
-      console.log("❌ Email still not verified");
+      
       return false;
     }
   } catch (error: any) {
-    console.error("❌ Error checking verification status:", error);
+    
     throw new Error(`Failed to check email verification: ${error.message}`);
   }
 };

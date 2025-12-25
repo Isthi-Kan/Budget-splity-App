@@ -22,11 +22,11 @@ export const createUserDocument = async (
       lastSeen: serverTimestamp(),
     };
 
-    console.log("Creating user document:", { uid, email, name: userName });
+    
     await setDoc(doc(db, 'users', uid), userData);
-    console.log("✅ User document created successfully");
+    
   } catch (error: any) {
-    console.error("❌ Failed to create user document:", error);
+    
     throw new Error(`Failed to create user document: ${error.message}`);
   }
 };
@@ -79,7 +79,7 @@ export const updateLastSeen = async (uid: string): Promise<void> => {
       lastSeen: serverTimestamp(),
     });
   } catch (error: any) {
-    console.error('Failed to update last seen:', error.message);
+    
     // Don't throw error for last seen updates to avoid disrupting user experience
   }
 };

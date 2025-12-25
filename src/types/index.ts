@@ -114,6 +114,8 @@ export interface Settlement {
   settledAt?: any;
   createdAt: any;
   note?: string;
+  status?: "pending" | "settled";
+  confirmations?: string[]; // emails or uids of users who confirmed
 }
 
 // Group summary type
