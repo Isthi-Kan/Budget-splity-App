@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   RefreshControl,
   ScrollView,
@@ -13,7 +14,10 @@ import {
   View,
 } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { getGroupSummary } from "../../../services/firebase/expenses";
+import {
+  confirmSettlement,
+  getGroupSummary,
+} from "../../../services/firebase/expenses";
 import { getGroup } from "../../../services/firebase/groups";
 import { useApp } from "../../../store";
 import { Group, GroupSummary } from "../../../types";
@@ -56,7 +60,6 @@ export default function GroupSummaryScreen() {
       ])) as GroupSummary;
       setSummary(summaryData);
     } catch (error: any) {
-      console.error("Error loading group summary:", error);
       // Fallback summary if loading fails partially
       setSummary({
         id: groupId,
@@ -133,7 +136,7 @@ export default function GroupSummaryScreen() {
               </View>
               <View style={styles.listContent}>
                 <Text style={styles.listTitle}>
-                  {spender.name || spender.email || spender.uid}
+                  {spender.name || (spender as any).email || spender.uid}
                 </Text>
                 {(() => {
                   const title = spender.name || "";
@@ -141,7 +144,6 @@ export default function GroupSummaryScreen() {
                   if (email && email !== title) {
                     return <Text style={styles.listSubtitle}>{email}</Text>;
                   }
-                  // If title is an email, show a readable name from local-part
                   if (!title && email) {
                     const local = email.split("@")[0];
                     return <Text style={styles.listSubtitle}>{local}</Text>;
@@ -317,6 +319,18 @@ export default function GroupSummaryScreen() {
             return toPrimaryName;
           })();
 
+          const currentEmail = (user?.email || "").toLowerCase();
+          const isInvolved =
+            (settlement.fromUser || "").toLowerCase() === currentEmail ||
+            (settlement.toUser || "").toLowerCase() === currentEmail;
+          const confirmations = (settlement.confirmations || []).map((c) =>
+            (c || "").toLowerCase()
+          );
+          const alreadyConfirmed = confirmations.includes(currentEmail);
+          const isSettled =
+            !!settlement.settled || settlement.status === "settled";
+          const isPending = !isSettled && confirmations.length > 0;
+
           return (
             <Animated.View
               key={index}
@@ -412,8 +426,75 @@ export default function GroupSummaryScreen() {
               <View style={styles.settlementAmountBox}>
                 <Text style={styles.settlementLabel}>Suggested Payment</Text>
                 <Text style={styles.settlementAmount}>
-                  Rs {settlement.amount.toFixed(0)}
+                  Rs {settlement.amount.toFixed(1)}
                 </Text>
+                {isSettled ? (
+                  <View style={{ marginTop: 10 }}>
+                    <Text
+                      style={[styles.settlementLabel, { color: "#059669" }]}
+                    >
+                      Settled
+                    </Text>
+                  </View>
+                ) : isPending ? (
+                  <View style={{ marginTop: 10 }}>
+                    <Text
+                      style={[styles.settlementLabel, { color: "#b45309" }]}
+                    >
+                      The amount settles only when both users click ‘Settled’
+                    </Text>
+                  </View>
+                ) : null}
+                {isInvolved && !alreadyConfirmed && !isSettled && (
+                  <TouchableOpacity
+                    style={{
+                      marginTop: 12,
+                      backgroundColor: "#DAA520",
+                      borderRadius: 12,
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      alignSelf: "center",
+                    }}
+                    onPress={async () => {
+                      try {
+                        const currentEmailLower = (
+                          user!.email || ""
+                        ).toLowerCase();
+                        const otherEmailLower =
+                          (settlement.fromUser || "").toLowerCase() ===
+                          currentEmailLower
+                            ? (settlement.toUser || "").toLowerCase()
+                            : (settlement.fromUser || "").toLowerCase();
+                        const confirmationsLower = (
+                          settlement.confirmations || []
+                        ).map((c: string) => (c || "").toLowerCase());
+                        const willBeSettled =
+                          confirmationsLower.includes(otherEmailLower);
+
+                        await confirmSettlement(
+                          groupId as string,
+                          settlement.fromUser,
+                          settlement.toUser,
+                          settlement.amount,
+                          user!.email!
+                        );
+                        Alert.alert(
+                          willBeSettled
+                            ? "Settlement completed"
+                            : "Confirmation recorded",
+                          willBeSettled
+                            ? "Both parties have confirmed. This payment is now marked as Settled."
+                            : "Thanks — your confirmation has been recorded. The amount settles only when both users click 'Settled'."
+                        );
+                        handleRefresh();
+                      } catch (e) {}
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "800" }}>
+                      Settled
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </Animated.View>
           );

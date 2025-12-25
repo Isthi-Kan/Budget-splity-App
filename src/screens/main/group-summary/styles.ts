@@ -309,7 +309,7 @@ export const styles = StyleSheet.create({
         alignItems: "center",
     },
     settlementLabel: {
-        fontSize: 11,
+        fontSize: 9,
         color: "#92400e",
         fontWeight: "700",
         textTransform: "uppercase",

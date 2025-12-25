@@ -16,12 +16,6 @@ export default function AuthProvider({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("🔐 Auth state changed:", {
-        user: user?.email,
-        isLoggedIn: !!user,
-        segments: segments,
-      });
-
       setUser(user);
       setIsLoading(false);
     });
@@ -39,26 +33,14 @@ export default function AuthProvider({
       segments[0] !== "(auth)" &&
       segments[0] !== "(tabs)";
 
-    console.log("🧭 Navigation check:", {
-      user: user?.email,
-      isLoggedIn: !!user,
-      segments: segments,
-      inAuthGroup,
-      inTabsGroup,
-      isRootRoute,
-      route: segments.join("/") || "root",
-    });
-
     if (user && !user.emailVerified) {
       // User logged in but email not verified
       if (!inAuthGroup || segments[1] !== "verify-email") {
-        console.log("📧 Redirecting to email verification");
         router.replace("/(auth)/verify-email");
       }
     } else if (user && user.emailVerified) {
       // User logged in and verified - redirect from auth or root to tabs
       if (inAuthGroup || isRootRoute) {
-        console.log("🏠 Redirecting to tabs (user logged in)");
         router.replace("/(tabs)");
       }
     } else {
@@ -68,7 +50,6 @@ export default function AuthProvider({
         segments[0] === "create-group" ||
         segments[0] === "group"
       ) {
-        console.log("🔓 Redirecting to welcome (user logged out)");
         router.replace("/");
       }
     }

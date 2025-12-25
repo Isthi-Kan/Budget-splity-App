@@ -46,7 +46,7 @@ export const addExpense = async (
   groupId: string,
   expenseData: Omit<Expense, 'id' | 'createdAt'>
 ): Promise<string> => {
-  console.log("💰 Adding expense to group:", groupId);
+  
 
   try {
     const expense: Omit<Expense, 'id'> = {
@@ -67,7 +67,7 @@ export const addExpense = async (
       expense.shares = calculateEqualShares(expense.amount, expense.participants);
     }
 
-    console.log("🔄 Adding to expenses collection...");
+    
     // Clean any undefined fields (Firestore doesn't accept undefined)
     const cleanedExpense = cleanUndefinedFields(expense);
 
@@ -75,14 +75,14 @@ export const addExpense = async (
     const expensesRef = collection(db, 'expenses', groupId, 'expenses');
     const docRef = await addDoc(expensesRef, cleanedExpense);
 
-    console.log("✅ Expense added successfully:", docRef.id);
+    
 
     // Invalidate group summary cache
     await invalidateGroupSummary(groupId);
 
     return docRef.id;
   } catch (error: any) {
-    console.error("❌ Error adding expense:", error);
+    
     throw new Error(`Failed to add expense: ${error.message}`);
   }
 };
@@ -91,7 +91,6 @@ export const addExpense = async (
  * Get expenses for a group
  */
 export const getGroupExpenses = async (groupId: string): Promise<Expense[]> => {
-  console.log("📊 Getting expenses for group:", groupId);
   
   try {
     // Use your database structure: expenses/{groupId}/expenses/{expenseId}
@@ -134,17 +133,17 @@ export const getGroupExpenses = async (groupId: string): Promise<Expense[]> => {
       return exp as Expense;
     });
     
-    console.log("✅ Expenses loaded:", expenses.length);
+    
     return expenses;
   } catch (error: any) {
     if (error.message?.includes('timeout')) {
-      console.error("❌ Expense query timed out for group:", groupId);
+      
       throw new Error('Request timed out. Please check your internet connection and try again.');
     } else if (error.code === 'permission-denied') {
-      console.error("❌ Permission denied for group expenses:", groupId);
+      
       throw new Error('You do not have permission to access this group\'s expenses.');
     } else {
-      console.error("❌ Error getting expenses:", error);
+      
       throw new Error(`Failed to get expenses: ${error.message || 'Unknown error'}`);
     }
   }
@@ -284,20 +283,13 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
   try {
     const expenses = await getGroupExpenses(groupId);
     
-    console.log("💰 Raw expenses data:", expenses.map(exp => ({
-      id: exp.id,
-      amount: exp.amount,
-      paidBy: exp.paidBy,
-      shares: exp.shares,
-      description: exp.description
-    })));
     
     // Calculate total paid and total owed for each member
     const totalPaid: Record<string, number> = {};
     const totalOwed: Record<string, number> = {};
     
-    expenses.forEach(expense => {
-      console.log(`📋 Processing expense: ${expense.description || 'Unnamed'} - $${expense.amount} paid by ${expense.paidBy}`);
+    expenses.forEach((expense) => {
+      
       
       // Add to total paid
       if (!totalPaid[expense.paidBy]) totalPaid[expense.paidBy] = 0;
@@ -305,18 +297,17 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
       
       // Add to total owed (shares)
       if (expense.shares) {
-        console.log(`   Shares:`, expense.shares);
-        Object.entries(expense.shares).forEach(([uid, share]) => {
+        
+        Object.entries(expense.shares).forEach(([uid, share]: [string, number]) => {
           if (!totalOwed[uid]) totalOwed[uid] = 0;
           totalOwed[uid] += share;
         });
       } else {
-        console.log(`   ⚠️ No shares found for expense ${expense.id}`);
+        
       }
     });
     
-    console.log("📊 Total paid by each UID:", totalPaid);
-    console.log("📊 Total owed by each UID:", totalOwed);
+    
     
     // Get all unique UIDs
     const allMembers = new Set([
@@ -334,14 +325,10 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
         );
         
         const user = await Promise.race([userPromise, timeoutPromise]);
-        console.log(`User data for ${uid}:`, { 
-          email: user?.email, 
-          name: user?.name,
-          exists: !!user
-        });
+        
         return user;
       } catch (error) {
-        console.warn(`Could not fetch user data for ${uid}:`, error);
+        
         return null;
       }
     });
@@ -362,7 +349,7 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
       const userExpenses = expenses.filter(exp => exp.paidBy === uid || (exp.shares && exp.shares[uid] > 0)).map(exp => exp.id);
       const user = userMap.get(uid);
       
-      console.log(`👤 User ${uid}: paid=$${paid}, owes=$${owed}, balance=$${balance}`);
+      
       
       // Prefer real name first, then email; avoid duplicating email
       const isEmailUid = uid && uid.includes('@') && uid.includes('.');
@@ -385,7 +372,7 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
         // Fallback
         displayName = `User ${uid.substring(0, 8)} (Missing Profile)`;
         displayEmail = '';
-        console.warn(`⚠️ User ${uid} has no profile. They should complete signup to add their email.`);
+        
       }
       
       balances.push({ 
@@ -400,33 +387,80 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
       });
     });
     
+    // Apply already settled transfers to balances to reflect real net
+    try {
+      const settledColl = collection(db, 'settlements', groupId, 'settlements');
+      const settledQ = query(settledColl, where('settled', '==', true));
+      const settledSnap = await getDocs(settledQ);
+      const settledList = settledSnap.docs.map(d => d.data()) as any[];
+      const norm = (s: string) => (s || '').toLowerCase();
+      settledList.forEach(s => {
+        const fromId = norm(s.fromUser || '');
+        const toId = norm(s.toUser || '');
+        const amount = Number(s.amount) || 0;
+        if (!amount) return;
+        const findIndex = (ident: string) =>
+          balances.findIndex(b => norm(b.email || '') === ident || norm(b.uid || '') === ident);
+        const fromIdx = findIndex(fromId);
+        const toIdx = findIndex(toId);
+        if (fromIdx >= 0) balances[fromIdx].balance = Math.round((balances[fromIdx].balance + amount) * 100) / 100;
+        if (toIdx >= 0) balances[toIdx].balance = Math.round((balances[toIdx].balance - amount) * 100) / 100;
+      });
+    } catch { /* ignore adjustments on failure */ }
+
+    // Deduplicate balances by email (fallback to UID) to avoid duplicates in UI
+    const dedupeBalancesByIdentity = (items: Balance[]): Balance[] => {
+      const map = new Map<string, Balance>();
+      const norm = (s: string | undefined) => (s || '').toLowerCase();
+      items.forEach((b) => {
+        const key = norm(b.email) || norm(b.uid);
+        if (!key) return;
+        if (!map.has(key)) {
+          // Clone to avoid mutating original
+          map.set(key, {
+            uid: b.uid,
+            name: b.name,
+            email: b.email,
+            displayName: b.displayName,
+            totalPaid: b.totalPaid,
+            totalOwes: b.totalOwes,
+            balance: b.balance,
+            expenses: Array.isArray(b.expenses) ? [...b.expenses] : [],
+            photoURL: (b as any).photoURL,
+          } as Balance);
+        } else {
+          const existing = map.get(key)!;
+          existing.totalPaid = Math.round((existing.totalPaid + b.totalPaid) * 100) / 100;
+          existing.totalOwes = Math.round((existing.totalOwes + b.totalOwes) * 100) / 100;
+          existing.balance = Math.round((existing.balance + b.balance) * 100) / 100;
+          // Prefer real name/email if missing
+          if (!existing.name && b.name) existing.name = b.name;
+          if (!existing.displayName && b.displayName) existing.displayName = b.displayName;
+          if (!existing.email && b.email) existing.email = b.email;
+          // Merge expenses
+          const set = new Set(existing.expenses || []);
+          (b.expenses || []).forEach((id) => set.add(id));
+          existing.expenses = Array.from(set);
+        }
+      });
+      return Array.from(map.values());
+    };
+
+    const dedupedBalances = dedupeBalancesByIdentity(balances);
+
     // Generate settlement suggestions with email consolidation
-    console.log("🎯 Final balances before settlement calculation:", balances.map(b => ({
-      uid: b.uid,
-      name: b.name,
-      email: b.email,
-      balance: b.balance,
-      paid: b.totalPaid,
-      owes: b.totalOwes
-    })));
+    const settlements = settleBalancesWithEmailConsolidation(dedupedBalances);
     
-    const settlements = settleBalancesWithEmailConsolidation(balances);
     
-    console.log("✅ Generated settlements:", settlements.map((s: Settlement) => ({
-      from: s.fromUserName,
-      to: s.toUserName,
-      amount: s.amount,
-      id: s.id
-    })));
     
     // Set groupId for settlements
     settlements.forEach((settlement: Settlement) => {
       settlement.groupId = groupId;
     });
     
-    return { balances, settlements };
+    return { balances: dedupedBalances, settlements };
   } catch (error: any) {
-    console.error("❌ Error in calculateGroupSummary:", error);
+    
     throw new Error(`Failed to calculate group summary: ${error.message}`);
   }
 };
@@ -438,7 +472,7 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
 export const settleBalancesWithEmailConsolidation = (balances: Balance[]): Settlement[] => {
   const settlements: Settlement[] = [];
   
-  console.log("🔄 Starting settlement with email consolidation");
+  
   
   try {
     // Step 1: Consolidate balances by email address
@@ -473,13 +507,7 @@ export const settleBalancesWithEmailConsolidation = (balances: Balance[]): Settl
       }
     });
     
-    console.log("📊 Consolidated balances by email:", Array.from(consolidatedBalances.entries()).map(([email, data]) => ({
-      email,
-      netBalance: Math.round(data.totalBalance * 100) / 100,
-      totalPaid: data.totalPaid,
-      totalOwes: data.totalOwes,
-      displayName: data.displayName
-    })));
+    
     
     // Step 2: Separate creditors and debtors
     const creditors: Array<{email: string, amount: number, displayName: string}> = [];
@@ -507,8 +535,7 @@ export const settleBalancesWithEmailConsolidation = (balances: Balance[]): Settl
     creditors.sort((a, b) => b.amount - a.amount);
     debtors.sort((a, b) => b.amount - a.amount);
     
-    console.log("💰 Creditors (owed money):", creditors);
-    console.log("💸 Debtors (owe money):", debtors);
+    
     
     // Step 3: Generate minimal settlements with safety checks
     let settlementId = 1;
@@ -521,7 +548,7 @@ export const settleBalancesWithEmailConsolidation = (balances: Balance[]): Settl
       
       // Safety check for valid amounts
       if (!creditor || !debtor || creditor.amount <= 0 || debtor.amount <= 0) {
-        console.warn("⚠️ Invalid creditor or debtor, breaking settlement loop");
+        
         break;
       }
       
@@ -529,11 +556,11 @@ export const settleBalancesWithEmailConsolidation = (balances: Balance[]): Settl
       const roundedAmount = Math.round(settlementAmount * 100) / 100;
       
       if (roundedAmount <= 0.01) {
-        console.log("⚠️ Settlement amount too small, breaking loop");
+        
         break;
       }
       
-      console.log(`💳 Settlement ${settlementId}: ${debtor.displayName} pays $${roundedAmount} to ${creditor.displayName}`);
+      
       
       settlements.push({
         id: `consolidated-settlement-${settlementId}-${Date.now()}`,
@@ -563,18 +590,15 @@ export const settleBalancesWithEmailConsolidation = (balances: Balance[]): Settl
     }
     
     if (settlementId > 20) {
-      console.error("⚠️ Settlement calculation exceeded maximum iterations");
+      
     }
     
-    console.log(`✅ Generated ${settlements.length} consolidated settlements`);
-    settlements.forEach((s, i) => {
-      console.log(`   ${i + 1}. ${s.fromUserName} → ${s.toUserName}: $${s.amount}`);
-    });
+    
     
     return settlements;
     
   } catch (error: any) {
-    console.error("❌ Error in settlement calculation:", error);
+    
     return []; // Return empty array if calculation fails
   }
 };
@@ -599,23 +623,23 @@ const calculateGroupSummaryWithTimeout = async (groupId: string): Promise<{
   summary: { balances: Balance[]; settlements: Settlement[] };
   expenses: Expense[];
 }> => {
-  console.log("🔄 Starting group summary calculation with fallbacks...");
+  
   
   try {
     // Try to invalidate cache (don't fail if this doesn't work)
     try {
       await invalidateGroupSummary(groupId);
     } catch (cacheError) {
-      console.warn("Cache invalidation failed, continuing...", cacheError);
+      
     }
     
     // Get expenses with aggressive timeout
     let expenses: Expense[] = [];
     try {
       expenses = await getGroupExpenses(groupId);
-      console.log("✅ Got expenses:", expenses.length);
+      
     } catch (expenseError) {
-      console.error("❌ Failed to get expenses, using empty array:", expenseError);
+      
       expenses = []; // Continue with empty expenses if needed
     }
     
@@ -623,9 +647,9 @@ const calculateGroupSummaryWithTimeout = async (groupId: string): Promise<{
     let summary: { balances: Balance[]; settlements: Settlement[] };
     try {
       summary = await calculateGroupSummary(groupId);
-      console.log("✅ Calculated summary successfully");
+      
     } catch (summaryError) {
-      console.error("❌ Failed to calculate summary, using empty data:", summaryError);
+      
       // Return minimal empty summary
       summary = {
         balances: [],
@@ -636,7 +660,7 @@ const calculateGroupSummaryWithTimeout = async (groupId: string): Promise<{
     return { summary, expenses };
     
   } catch (error: any) {
-    console.error("❌ Complete failure in summary calculation:", error);
+    
     // Return absolute fallback
     return {
       summary: { balances: [], settlements: [] },
@@ -649,7 +673,7 @@ const calculateGroupSummaryWithTimeout = async (groupId: string): Promise<{
  * Get comprehensive group summary with caching
  */
 export const getGroupSummary = async (groupId: string): Promise<GroupSummary> => {
-  console.log("📊 Getting comprehensive group summary:", groupId);
+  
   
   try {
     // Add timeout protection for the entire summary calculation
@@ -660,12 +684,7 @@ export const getGroupSummary = async (groupId: string): Promise<GroupSummary> =>
     
     const { summary, expenses } = await Promise.race([summaryPromise, timeoutPromise]);
     
-    console.log("🧮 Raw settlement calculation result:", summary.settlements.map((s: Settlement) => ({
-      from: s.fromUserName,
-      to: s.toUserName,
-      amount: s.amount,
-      id: s.id
-    })));
+    
     
     // Enhance with additional metrics
     const totalExpenses = expenses.length || 0;
@@ -689,7 +708,7 @@ export const getGroupSummary = async (groupId: string): Promise<GroupSummary> =>
           const amount = exp.amount || 0;
           expensesByMonth[monthKey] = (expensesByMonth[monthKey] || 0) + amount;
         } catch (error) {
-          console.warn("Invalid date for expense:", exp.id);
+          
         }
       }
     });
@@ -737,6 +756,9 @@ export const getGroupSummary = async (groupId: string): Promise<GroupSummary> =>
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
     
+    // Merge settlement suggestions with persisted statuses
+    const enrichedSettlements = await mergeSettlementStatuses(groupId, summary.settlements || []);
+
     // Create summary with guaranteed no undefined values
     const cleanSummary = {
       id: groupId || '',
@@ -744,7 +766,7 @@ export const getGroupSummary = async (groupId: string): Promise<GroupSummary> =>
       totalExpenses: totalExpenses,
       totalAmount: totalAmount,
       balances: summary.balances || [],
-      settlements: summary.settlements || [],
+      settlements: enrichedSettlements || [],
       lastUpdated: serverTimestamp(),
       expensesByCategory: expensesByCategory,
       expensesByMonth: expensesByMonth,
@@ -758,11 +780,11 @@ export const getGroupSummary = async (groupId: string): Promise<GroupSummary> =>
     const summaryRef = doc(db, 'groupSummaries', groupId);
     await setDoc(summaryRef, comprehensiveSummary, { merge: true });
     
-    console.log("✅ Group summary calculated and cached");
+    
     return comprehensiveSummary as GroupSummary;
     
   } catch (error: any) {
-    console.error("❌ Error getting group summary:", error);
+    
     throw new Error(`Failed to get group summary: ${error.message}`);
   }
 };
@@ -778,7 +800,7 @@ export const invalidateGroupSummary = async (groupId: string): Promise<void> => 
     }, { merge: true });
   } catch (error) {
     // If there's an error, log it but don't throw
-    console.log("📋 Could not invalidate summary cache:", error);
+    
   }
 };
 
@@ -786,7 +808,7 @@ export const invalidateGroupSummary = async (groupId: string): Promise<void> => 
  * Get expenses with user details
  */
 export const getGroupExpensesWithDetails = async (groupId: string): Promise<Expense[]> => {
-  console.log("📊 Getting group expenses with user details:", groupId);
+  
   
   try {
     const expenses = await getGroupExpenses(groupId);
@@ -796,7 +818,7 @@ export const getGroupExpensesWithDetails = async (groupId: string): Promise<Expe
     return expenses;
     
   } catch (error: any) {
-    console.error("❌ Error getting detailed expenses:", error);
+    
     throw new Error(`Failed to get detailed expenses: ${error.message}`);
   }
 };
@@ -855,4 +877,86 @@ export const getExpensesByDateRange = async (
   } catch (error: any) {
     throw new Error(`Failed to get expenses by date range: ${error.message}`);
   }
+};
+
+/**
+ * Settlement persistence helpers
+ */
+const settlementIdFor = (groupId: string, from: string, to: string, amount: number): string => {
+  const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const cents = Math.round((amount || 0) * 100);
+  return `${groupId}__${norm(from)}__${norm(to)}__${cents}`;
+};
+
+const mergeSettlementStatuses = async (groupId: string, suggestions: Settlement[]): Promise<Settlement[]> => {
+  try {
+    const coll = collection(db, 'settlements', groupId, 'settlements');
+    const snap = await getDocs(coll);
+    const existing = new Map<string, any>();
+    snap.forEach(d => existing.set(d.id, { id: d.id, ...d.data() }));
+
+    const results: Settlement[] = [];
+    for (const s of suggestions) {
+      const id = settlementIdFor(groupId, s.fromUser, s.toUser, s.amount);
+      const persisted = existing.get(id);
+      if (persisted) {
+        results.push({
+          ...s,
+          id,
+          settled: !!persisted.settled,
+          settledAt: persisted.settledAt,
+          status: persisted.status || (persisted.settled ? 'settled' : 'pending'),
+          confirmations: persisted.confirmations || [],
+        });
+      } else {
+        const docRef = doc(db, 'settlements', groupId, 'settlements', id);
+        const toSave = cleanUndefinedFields({
+          id,
+          groupId,
+          fromUser: s.fromUser,
+          fromUserName: s.fromUserName,
+          toUser: s.toUser,
+          toUserName: s.toUserName,
+          amount: s.amount,
+          settled: false,
+          status: 'pending',
+          confirmations: [],
+          createdAt: serverTimestamp(),
+        });
+        await setDoc(docRef, toSave, { merge: true });
+        results.push({ ...s, id, settled: false, status: 'pending', confirmations: [] });
+      }
+    }
+    return results;
+  } catch (e) {
+    return suggestions;
+  }
+};
+
+export const confirmSettlement = async (
+  groupId: string,
+  fromUser: string,
+  toUser: string,
+  amount: number,
+  confirmer: string
+): Promise<void> => {
+  const id = settlementIdFor(groupId, fromUser, toUser, amount);
+  const ref = doc(db, 'settlements', groupId, 'settlements', id);
+  const snap = await getDoc(ref);
+  const norm = (s: string) => (s || '').toLowerCase();
+  const fromNorm = norm(fromUser);
+  const toNorm = norm(toUser);
+  const confirmerNorm = norm(confirmer);
+  const current = snap.exists() ? snap.data() : {};
+  const confirmations: string[] = Array.isArray(current.confirmations) ? current.confirmations.map(norm) : [];
+  if (!confirmations.includes(confirmerNorm)) confirmations.push(confirmerNorm);
+  const bothConfirmed = confirmations.includes(fromNorm) && confirmations.includes(toNorm);
+  const payload: any = {
+    confirmations,
+    status: bothConfirmed ? 'settled' : 'pending',
+    settled: bothConfirmed,
+  };
+  if (bothConfirmed) payload.settledAt = serverTimestamp();
+  await setDoc(ref, payload, { merge: true });
+  await invalidateGroupSummary(groupId);
 };

@@ -16,11 +16,6 @@ export default function AuthProvider({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("🔐 Auth state changed:", {
-        user: user?.email,
-        isLoggedIn: !!user,
-      });
-
       setUser(user);
       setIsLoading(false);
     });
@@ -36,22 +31,12 @@ export default function AuthProvider({
     const isProtectedRoute =
       segments[0] === "create-group" || segments[0] === "group";
 
-    console.log("🧭 Navigation check:", {
-      user: user?.email,
-      segments: segments.join("/") || "root",
-      inAuthGroup,
-      inTabsGroup,
-      isProtectedRoute,
-    });
-
     // Simple protection: block unauthenticated users from protected areas
     if (!user && (inTabsGroup || isProtectedRoute)) {
-      console.log("🔒 Redirecting to welcome (authentication required)");
       router.replace("/");
     }
     // Handle unverified users
     else if (user && !user.emailVerified && !inAuthGroup) {
-      console.log("📧 Redirecting to email verification");
       router.replace("/(auth)/verify-email");
     }
     // Don't redirect authenticated users - let them navigate naturally

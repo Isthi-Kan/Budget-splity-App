@@ -97,7 +97,6 @@ export default function AddExpenseScreen() {
       await addExpense(groupId, expenseData);
       router.replace(`/group/${groupId}` as any);
     } catch (error: any) {
-      console.error("Error adding expense:", error);
       Alert.alert("Error", error.message || "Failed to add expense");
     } finally {
       setLoading(false);

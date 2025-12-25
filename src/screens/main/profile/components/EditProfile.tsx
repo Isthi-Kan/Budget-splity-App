@@ -56,7 +56,6 @@ export const EditProfile = ({ visible, onClose, user }: EditProfileProps) => {
         onClose();
       }
     } catch (error: any) {
-      console.error("Profile update error:", error);
       Alert.alert("Error", error.message || "Failed to update profile");
     } finally {
       setLoading(false);

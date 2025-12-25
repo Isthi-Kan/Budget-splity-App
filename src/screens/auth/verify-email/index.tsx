@@ -9,7 +9,7 @@ import {
   StatusBar,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import Animated, {
   FadeInDown,
@@ -26,19 +26,26 @@ import { logoutAction } from "../../../store/actions";
 import { Action } from "../../../store/types";
 import { styles } from "./styles";
 
-const sendVerificationEmailAction = async (dispatch: React.Dispatch<Action>) => {
-  dispatch({ type: 'SET_LOADING', payload: true });
+const sendVerificationEmailAction = async (
+  dispatch: React.Dispatch<Action>
+) => {
+  dispatch({ type: "SET_LOADING", payload: true });
   try {
     if (auth.currentUser) {
       await sendEmailVerification(auth.currentUser);
-      Alert.alert("Success", "Verification email sent! Please check your inbox.");
+      Alert.alert(
+        "Success",
+        "Verification email sent! Please check your inbox."
+      );
       return true;
     }
   } catch (error: any) {
-    console.error("Error sending verification email:", error);
-    Alert.alert("Error", "Failed to send verification email. Please try again.");
+    Alert.alert(
+      "Error",
+      "Failed to send verification email. Please try again."
+    );
   } finally {
-    dispatch({ type: 'SET_LOADING', payload: false });
+    dispatch({ type: "SET_LOADING", payload: false });
   }
   return false;
 };
@@ -50,27 +57,25 @@ const checkVerificationAction = async (dispatch: React.Dispatch<Action>) => {
       if (auth.currentUser.emailVerified) {
         const updatedUser = {
           uid: auth.currentUser.uid,
-          email: auth.currentUser.email || '',
+          email: auth.currentUser.email || "",
           name: auth.currentUser.displayName || undefined,
           emailVerified: true,
           createdAt: new Date().toISOString(),
           photoURL: auth.currentUser.photoURL || undefined,
         };
-        dispatch({ type: 'SET_USER', payload: updatedUser });
+        dispatch({ type: "SET_USER", payload: updatedUser });
         return true;
       }
     }
-  } catch (error) {
-    console.error("Error checking verification", error);
-  }
+  } catch (error) {}
   return false;
 };
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
   const { state, dispatch } = useApp();
-  const { user, isLoading } = state; 
-  
+  const { user, isLoading } = state;
+
   const [resendCooldown, setResendCooldown] = useState(0);
   const [checkingVerification, setCheckingVerification] = useState(false);
   const [showInitialMessage, setShowInitialMessage] = useState(true);
@@ -137,11 +142,14 @@ export default function VerifyEmailScreen() {
     setCheckingVerification(true);
     const success = await checkVerificationAction(dispatch);
     setCheckingVerification(false);
-    
+
     if (success) {
       router.replace("/(tabs)/home");
     } else {
-      Alert.alert("Not Verified", "Please verify your email first and try again.");
+      Alert.alert(
+        "Not Verified",
+        "Please verify your email first and try again."
+      );
     }
   };
 
@@ -154,14 +162,18 @@ export default function VerifyEmailScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+
       {/* Premium Golden Header */}
       <LinearGradient
         colors={["#B8860B", "#DAA520", "#FFD700"]}
         style={styles.header}
       >
-        <Animated.View 
+        <Animated.View
           entering={FadeInUp.delay(200).springify()}
           style={[styles.iconComposition, animatedIconStyle]}
         >
@@ -169,8 +181,11 @@ export default function VerifyEmailScreen() {
             <Ionicons name="mail-open" size={42} color="white" />
           </View>
         </Animated.View>
-        
-        <Animated.View entering={FadeInUp.delay(300).springify()} style={{ alignItems: 'center' }}>
+
+        <Animated.View
+          entering={FadeInUp.delay(300).springify()}
+          style={{ alignItems: "center" }}
+        >
           <Text style={styles.headerTitle}>S P I L T I F Y</Text>
           <Text style={styles.headerSubtitle}>Confirm Your Identity</Text>
         </Animated.View>
@@ -178,7 +193,10 @@ export default function VerifyEmailScreen() {
 
       {/* White Content Sheet */}
       <View style={styles.contentSheet}>
-        <Animated.View entering={FadeInDown.delay(500).springify()} style={{ width: '100%', alignItems: 'center' }}>
+        <Animated.View
+          entering={FadeInDown.delay(500).springify()}
+          style={{ width: "100%", alignItems: "center" }}
+        >
           <Text style={styles.title}>Verify Your Email</Text>
 
           {showInitialMessage && (
@@ -192,11 +210,15 @@ export default function VerifyEmailScreen() {
           <Text style={styles.email}>{userEmail}</Text>
 
           <Text style={styles.description}>
-            We've sent a link to your email. Click it to activate your account and start sharing expenses.
+            We've sent a link to your email. Click it to activate your account
+            and start sharing expenses.
           </Text>
 
           <TouchableOpacity
-            style={[styles.primaryButton, checkingVerification && styles.buttonDisabled]}
+            style={[
+              styles.primaryButton,
+              checkingVerification && styles.buttonDisabled,
+            ]}
             onPress={handleCheckVerification}
             disabled={checkingVerification}
             activeOpacity={0.8}
@@ -204,12 +226,17 @@ export default function VerifyEmailScreen() {
             {checkingVerification ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.primaryButtonText}>I'VE VERIFIED MY EMAIL</Text>
+              <Text style={styles.primaryButtonText}>
+                I'VE VERIFIED MY EMAIL
+              </Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.secondaryButton, (isLoading || resendCooldown > 0) && styles.buttonDisabled]}
+            style={[
+              styles.secondaryButton,
+              (isLoading || resendCooldown > 0) && styles.buttonDisabled,
+            ]}
             onPress={handleSendVerificationEmail}
             disabled={isLoading || resendCooldown > 0}
             activeOpacity={0.7}
@@ -218,7 +245,9 @@ export default function VerifyEmailScreen() {
               <ActivityIndicator color="#DAA520" />
             ) : (
               <Text style={styles.secondaryButtonText}>
-                {resendCooldown > 0 ? `RESEND IN ${resendCooldown}S` : "RESEND EMAIL"}
+                {resendCooldown > 0
+                  ? `RESEND IN ${resendCooldown}S`
+                  : "RESEND EMAIL"}
               </Text>
             )}
           </TouchableOpacity>

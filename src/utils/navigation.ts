@@ -26,7 +26,7 @@ export const safeNavigate = (route: any, fallback: any = '/(tabs)/home') => {
   try {
     router.push(route as any);
   } catch (error) {
-    console.warn('Navigation failed, using fallback:', error);
+    
     router.replace(fallback as any);
   }
 };
