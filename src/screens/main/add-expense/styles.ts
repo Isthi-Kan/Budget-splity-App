@@ -151,48 +151,6 @@ export const styles = StyleSheet.create({
     selectedCategoryLabel: {
         color: "#DAA520",
     },
-    imageSection: {
-        marginTop: 8,
-    },
-    imagePicker: {
-        height: 120,
-        backgroundColor: "#f8fafc",
-        borderRadius: 20,
-        borderWidth: 2,
-        borderColor: "#f1f5f9",
-        borderStyle: "dashed",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    imagePickerText: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: "#94a3b8",
-        marginTop: 8,
-    },
-    previewContainer: {
-        position: "relative",
-    },
-    previewImage: {
-        width: "100%",
-        height: 160,
-        borderRadius: 20,
-    },
-    removeImageBtn: {
-        position: "absolute",
-        top: 10,
-        right: 10,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: "rgba(239, 68, 68, 0.9)",
-        justifyContent: "center",
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-    },
     footer: {
         padding: 24,
         backgroundColor: "white",

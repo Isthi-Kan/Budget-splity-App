@@ -51,8 +51,11 @@ export interface Expense {
   proofImagePath?: string; // Storage path for deletion
   note?: string;
   createdAt: any;
+  createdAtClient?: any; // Client-side fallback timestamp
   updatedAt?: any;
+  updatedAtClient?: any; // Client-side fallback timestamp
   paidAt?: any;
+  paidAtClient?: any; // Client-side fallback timestamp
   location?: string;
   tags?: string[];
 }

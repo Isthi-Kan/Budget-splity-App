@@ -23,16 +23,32 @@ interface HelpSupportProps {
 
 export const HelpSupport = ({ visible, onClose }: HelpSupportProps) => {
   const faqs = [
-    { q: "How do I create a group?", a: "Go to the Home screen and tap the floating '+' button." },
-    { q: "How are expenses split?", a: "Currently, Splitify splits expenses equally among all group members." },
-    { q: "Can I add receipts?", a: "Yes, you can upload or take a photo of your receipt when adding an expense." },
+    {
+      q: "How do I create a group?",
+      a: "Go to the Home screen and tap the floating '+' button.",
+    },
+    {
+      q: "How are expenses split?",
+      a: "Currently, Splitify splits expenses equally among all group members.",
+    },
+    {
+      q: "Can I attach receipts?",
+      a: "Not currently. Photo uploads are disabled in Splitify.",
+    },
   ];
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+    >
       <View style={styles.container}>
         <StatusBar barStyle="light-content" />
-        <LinearGradient colors={["#B8860B", "#DAA520", "#FFD700"]} style={styles.header}>
+        <LinearGradient
+          colors={["#B8860B", "#DAA520", "#FFD700"]}
+          style={styles.header}
+        >
           <SafeAreaView>
             <View style={styles.headerContent}>
               <TouchableOpacity onPress={onClose} style={styles.backButton}>
@@ -45,18 +61,29 @@ export const HelpSupport = ({ visible, onClose }: HelpSupportProps) => {
         </LinearGradient>
 
         <View style={styles.content}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
             <Animated.View entering={FadeInDown.delay(100).springify()}>
               <View style={styles.supportCard}>
-                <Ionicons name="chatbubbles-outline" size={32} color="#DAA520" />
+                <Ionicons
+                  name="chatbubbles-outline"
+                  size={32}
+                  color="#DAA520"
+                />
                 <Text style={styles.supportCardTitle}>Need more help?</Text>
-                <Text style={styles.supportCardDesc}>Our team is available 24/7 to assist you.</Text>
+                <Text style={styles.supportCardDesc}>
+                  Our team is available 24/7 to assist you.
+                </Text>
                 <TouchableOpacity style={styles.contactButton}>
                   <Text style={styles.contactButtonText}>Contact Support</Text>
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.sectionHeader}>Frequently Asked Questions</Text>
+              <Text style={styles.sectionHeader}>
+                Frequently Asked Questions
+              </Text>
               {faqs.map((faq, index) => (
                 <View key={index} style={styles.faqItem}>
                   <Text style={styles.faqQuestion}>{faq.q}</Text>
