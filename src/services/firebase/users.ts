@@ -1,5 +1,5 @@
 // Firestore users service
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { User } from '../../types';
 import { db } from './config';
 
@@ -81,5 +81,27 @@ export const updateLastSeen = async (uid: string): Promise<void> => {
   } catch (error: any) {
     console.error('Failed to update last seen:', error.message);
     // Don't throw error for last seen updates to avoid disrupting user experience
+  }
+};
+
+/**
+ * Get user document by email address
+ */
+export const getUserDocumentByEmail = async (email: string): Promise<User | null> => {
+  try {
+    const trimmed = email.toLowerCase().trim();
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('email', '==', trimmed));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const docSnap = snap.docs[0];
+      return {
+        uid: docSnap.id,
+        ...docSnap.data(),
+      } as User;
+    }
+    return null;
+  } catch (error: any) {
+    throw new Error(`Failed to get user by email: ${error.message}`);
   }
 };

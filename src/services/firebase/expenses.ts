@@ -15,8 +15,7 @@ import {
 } from 'firebase/firestore';
 import { Balance, Expense, GroupSummary, Settlement } from '../../types';
 import { db } from './config';
-import { deleteExpenseProof } from './storage';
-import { getUserDocument } from './users';
+import { getUserDocument, getUserDocumentByEmail } from './users';
 
 /**
  * Recursively clean undefined fields from an object
@@ -44,28 +43,24 @@ const cleanUndefinedFields = (obj: any): any => {
  * Add expense to group with optional proof image
  */
 export const addExpense = async (
-  groupId: string, 
-  expenseData: Omit<Expense, 'id' | 'createdAt'>,
-  proofImageUrl?: string,
-  proofImagePath?: string
+  groupId: string,
+  expenseData: Omit<Expense, 'id' | 'createdAt'>
 ): Promise<string> => {
   console.log("💰 Adding expense to group:", groupId);
-  
+
   try {
     const expense: Omit<Expense, 'id'> = {
       ...expenseData,
       createdAt: serverTimestamp(),
+      // Client-side fallback for immediate display until serverTimestamp resolves
+      createdAtClient: Date.now(),
       updatedAt: serverTimestamp(),
+      updatedAtClient: Date.now(),
       paidAt: expenseData.paidAt || serverTimestamp(),
+      paidAtClient: Date.now(),
     };
 
-    // Only add proof image fields if they exist
-    if (proofImageUrl) {
-      expense.proofImageUrl = proofImageUrl;
-    }
-    if (proofImagePath) {
-      expense.proofImagePath = proofImagePath;
-    }
+    // Photo proof removed
 
     // Calculate shares if not provided
     if (!expense.shares && expense.splitType === 'equal') {
@@ -73,16 +68,18 @@ export const addExpense = async (
     }
 
     console.log("🔄 Adding to expenses collection...");
-    
+    // Clean any undefined fields (Firestore doesn't accept undefined)
+    const cleanedExpense = cleanUndefinedFields(expense);
+
     // Use the structure you created: expenses/{groupId}/expenses/{expenseId}
     const expensesRef = collection(db, 'expenses', groupId, 'expenses');
-    const docRef = await addDoc(expensesRef, expense);
-    
+    const docRef = await addDoc(expensesRef, cleanedExpense);
+
     console.log("✅ Expense added successfully:", docRef.id);
-    
+
     // Invalidate group summary cache
     await invalidateGroupSummary(groupId);
-    
+
     return docRef.id;
   } catch (error: any) {
     console.error("❌ Error adding expense:", error);
@@ -108,10 +105,34 @@ export const getGroupExpenses = async (groupId: string): Promise<Expense[]> => {
     );
     
     const querySnapshot = await Promise.race([queryPromise, timeoutPromise]);
-    const expenses = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Expense[];
+    const normalizeDateField = (v: any): any => {
+      try {
+        if (!v) return undefined;
+        if (typeof v?.toDate === 'function') return v; // Firestore Timestamp
+        if (v instanceof Date) return v;
+        // If unresolved serverTimestamp sentinel, leave undefined and let UI fallback
+        if (typeof v === 'object' && v._methodName === 'serverTimestamp') {
+          return undefined;
+        }
+        const d = new Date(v as any);
+        return isNaN(d.getTime()) ? undefined : d;
+      } catch {
+        return undefined;
+      }
+    };
+
+    const expenses = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const exp = {
+        id: doc.id,
+        ...data,
+      } as any;
+      // Normalize timestamp-like fields for UI safety
+      exp.createdAt = normalizeDateField((data as any).createdAt) ?? (data as any).createdAt;
+      exp.updatedAt = normalizeDateField((data as any).updatedAt) ?? (data as any).updatedAt;
+      exp.paidAt = normalizeDateField((data as any).paidAt) ?? (data as any).paidAt;
+      return exp as Expense;
+    });
     
     console.log("✅ Expenses loaded:", expenses.length);
     return expenses;
@@ -161,7 +182,14 @@ export const updateExpense = async (
   try {
     // Use your database structure: expenses/{groupId}/expenses/{expenseId}
     const expenseRef = doc(db, 'expenses', groupId, 'expenses', expenseId);
-    await updateDoc(expenseRef, updates);
+    // Clean undefined fields from updates before sending to Firestore
+    const serverUpdates = {
+      ...updates,
+      updatedAt: serverTimestamp(),
+      updatedAtClient: Date.now()
+    };
+    const cleanedUpdates = cleanUndefinedFields(serverUpdates);
+    await updateDoc(expenseRef, cleanedUpdates);
   } catch (error: any) {
     throw new Error(`Failed to update expense: ${error.message}`);
   }
@@ -299,7 +327,8 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
     // Fetch user data for all members with timeout protection
     const userDataPromises = Array.from(allMembers).map(async (uid) => {
       try {
-        const userPromise = getUserDocument(uid);
+        const isEmailUid = uid && uid.includes('@') && uid.includes('.');
+        const userPromise = isEmailUid ? getUserDocumentByEmail(uid) : getUserDocument(uid);
         const timeoutPromise = new Promise<null>((_, reject) => 
           setTimeout(() => reject(new Error(`User fetch timeout for ${uid}`)), 2000)
         );
@@ -335,25 +364,25 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
       
       console.log(`👤 User ${uid}: paid=$${paid}, owes=$${owed}, balance=$${balance}`);
       
-      // Smart email detection: use uid if it looks like an email, otherwise use user data
+      // Prefer real name first, then email; avoid duplicating email
       const isEmailUid = uid && uid.includes('@') && uid.includes('.');
       let displayEmail = '';
       let displayName = '';
-      
-      if (user?.email) {
-        // User has proper email in document
+
+      if (user?.name && !user.name.startsWith('User ')) {
+        // Name set in profile/doc
+        displayName = user.name;
+        displayEmail = user?.email || (isEmailUid ? uid : '');
+      } else if (user?.email) {
+        // No name, show full email everywhere for consistency
         displayEmail = user.email;
-        displayName = user.email;
+        displayName = user.email; // Use full email, not local-part
       } else if (isEmailUid) {
-        // UID is an email address
+        // UID is actually an email; use full email as display
         displayEmail = uid;
         displayName = uid;
-      } else if (user?.name && !user.name.startsWith('User ')) {
-        // User has a proper name
-        displayName = user.name;
-        displayEmail = '';
       } else {
-        // Missing user data - need better display
+        // Fallback
         displayName = `User ${uid.substring(0, 8)} (Missing Profile)`;
         displayEmail = '';
         console.warn(`⚠️ User ${uid} has no profile. They should complete signup to add their email.`);
@@ -374,7 +403,7 @@ export const calculateGroupSummary = async (groupId: string): Promise<{
     // Generate settlement suggestions with email consolidation
     console.log("🎯 Final balances before settlement calculation:", balances.map(b => ({
       uid: b.uid,
-      name: b.displayName || b.name,
+      name: b.name,
       email: b.email,
       balance: b.balance,
       paid: b.totalPaid,
@@ -424,7 +453,7 @@ export const settleBalancesWithEmailConsolidation = (balances: Balance[]): Settl
     balances.forEach(balance => {
       // Use email as the key, fallback to UID if no email
       const key = balance.email || balance.uid;
-      const displayName = balance.email || balance.displayName || balance.name || `User ${balance.uid.substring(0, 8)}`;
+      const displayName = balance.name || balance.displayName || balance.email || `User ${balance.uid.substring(0, 8)}`;
       
       if (consolidatedBalances.has(key)) {
         // Consolidate with existing entry
@@ -553,77 +582,12 @@ export const settleBalancesWithEmailConsolidation = (balances: Balance[]): Settl
 /**
  * Delete expense with proof image cleanup
  */
-export const deleteExpenseWithCleanup = async (
-  groupId: string, 
-  expenseId: string
-): Promise<void> => {
-  console.log("🗑️ Deleting expense with cleanup:", expenseId);
-  
-  try {
-    // Get expense data first to check for proof image
-    const expenseDoc = await getExpense(groupId, expenseId);
-    
-    if (expenseDoc?.proofImagePath) {
-      // Delete proof image from storage
-      await deleteExpenseProof(expenseDoc.proofImagePath);
-    }
-    
-    // Delete expense document
-    const docRef = doc(db, 'expenses', groupId, 'expenses', expenseId);
-    await deleteDoc(docRef);
-    
-    // Invalidate group summary cache
-    await invalidateGroupSummary(groupId);
-    
-    console.log("✅ Expense and proof image deleted successfully");
-  } catch (error: any) {
-    console.error("❌ Error deleting expense:", error);
-    throw new Error(`Failed to delete expense: ${error.message}`);
-  }
-};
+// deleteExpenseWithCleanup removed (photo proof not supported)
 
 /**
  * Update expense with proof image support
  */
-export const updateExpenseWithProof = async (
-  groupId: string, 
-  expenseId: string, 
-  updates: Partial<Expense>,
-  newProofImageUrl?: string,
-  newProofImagePath?: string
-): Promise<void> => {
-  console.log("✏️ Updating expense with proof support:", expenseId);
-  
-  try {
-    const docRef = doc(db, 'expenses', groupId, 'expenses', expenseId);
-    
-    // Get current expense to handle proof image replacement
-    const currentExpense = await getExpense(groupId, expenseId);
-    
-    // If there's a new proof image and an old one exists, delete the old one
-    if (newProofImageUrl && currentExpense?.proofImagePath && 
-        currentExpense.proofImagePath !== newProofImagePath) {
-      await deleteExpenseProof(currentExpense.proofImagePath);
-    }
-    
-    const updateData = {
-      ...updates,
-      updatedAt: serverTimestamp(),
-      ...(newProofImageUrl && { proofImageUrl: newProofImageUrl }),
-      ...(newProofImagePath && { proofImagePath: newProofImagePath }),
-    };
-    
-    await updateDoc(docRef, updateData);
-    
-    // Invalidate group summary cache
-    await invalidateGroupSummary(groupId);
-    
-    console.log("✅ Expense updated successfully");
-  } catch (error: any) {
-    console.error("❌ Error updating expense:", error);
-    throw new Error(`Failed to update expense: ${error.message}`);
-  }
-};
+// updateExpenseWithProof removed (photo proof not supported)
 
 /**
  * Get comprehensive group summary with caching
@@ -741,27 +705,34 @@ export const getGroupSummary = async (groupId: string): Promise<GroupSummary> =>
     const topSpenders = Object.entries(spenderTotals)
       .map(([uid, amount]) => {
         const userBalance = summary.balances.find(b => b.uid === uid);
-        // Smart email detection for top spenders using same logic
         const isEmailUid = uid && uid.includes('@') && uid.includes('.');
-        
+
+        // Prefer human name first, then email, then fallbacks
         let displayName = '';
-        if (userBalance?.email) {
-          displayName = userBalance.email;
+        let emailForSpender: string | undefined = undefined;
+        if (userBalance?.name && !userBalance.name.startsWith('User ')) {
+          displayName = userBalance.name;
+          emailForSpender = userBalance.email;
+        } else if (userBalance?.displayName && !userBalance.displayName.startsWith('User ')) {
+          displayName = userBalance.displayName;
+          emailForSpender = userBalance.email;
+        } else if (userBalance?.email) {
+          displayName = userBalance.name || userBalance.displayName || userBalance.email;
+          emailForSpender = userBalance.email;
         } else if (isEmailUid) {
           displayName = uid;
-        } else if (userBalance?.name && !userBalance.name.startsWith('User ')) {
-          displayName = userBalance.name;
+          emailForSpender = uid;
         } else {
-          // For expenses that might have stored names
           const expenseWithName = expenses.find(e => e.paidBy === uid && e.paidByName);
           displayName = expenseWithName?.paidByName || `User ${uid.substring(0, 8)} (Missing Profile)`;
         }
-        
-        return { 
-          uid: uid || '', 
-          amount: amount || 0, 
-          name: displayName
-        };
+
+        return {
+          uid: uid || '',
+          amount: amount || 0,
+          name: displayName,
+          email: emailForSpender
+        } as any;
       })
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);

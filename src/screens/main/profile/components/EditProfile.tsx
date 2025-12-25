@@ -1,24 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Image,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { uploadUserProfileImage } from "../../../../services/firebase/storage";
 import { useApp } from "../../../../store";
 import { updateProfileAction } from "../../../../store/actions";
 import { User } from "../../../../types";
@@ -36,34 +34,7 @@ export const EditProfile = ({ visible, onClose, user }: EditProfileProps) => {
   const [name, setName] = useState(user?.name || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [loading, setLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [base64Image, setBase64Image] = useState<string | null>(null);
-
-  const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (status !== 'granted') {
-      Alert.alert("Permission Required", "Please allow gallery access to change your profile photo.");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      // Use URI for preview
-      setSelectedImage(result.assets[0].uri);
-      // Store base64 for reliable upload
-      if (result.assets[0].base64) {
-        setBase64Image(result.assets[0].base64);
-      }
-    }
-  };
+  // Photo upload removed
 
   const handleSave = async () => {
     if (!user) return;
@@ -74,20 +45,10 @@ export const EditProfile = ({ visible, onClose, user }: EditProfileProps) => {
 
     setLoading(true);
     try {
-      let photoURL = user.photoURL;
-
-      // 1. Upload image if selected (prefer base64 for reliability)
-      const imageToUpload = base64Image || selectedImage;
-      if (imageToUpload) {
-        const { url } = await uploadUserProfileImage(user.uid, imageToUpload);
-        photoURL = url;
-      }
-
-      // 2. Update Profile
+      // Update Profile (without photo upload)
       const success = await updateProfileAction(dispatch, user.uid, {
         name: name.trim(),
         bio: bio.trim(),
-        photoURL,
       });
 
       if (success) {
@@ -103,19 +64,29 @@ export const EditProfile = ({ visible, onClose, user }: EditProfileProps) => {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+    >
       <View style={styles.container}>
         <StatusBar barStyle="light-content" />
-        <LinearGradient colors={["#B8860B", "#DAA520", "#FFD700"]} style={styles.header}>
+        <LinearGradient
+          colors={["#B8860B", "#DAA520", "#FFD700"]}
+          style={styles.header}
+        >
           <SafeAreaView>
             <View style={styles.headerContent}>
               <TouchableOpacity onPress={onClose} style={styles.backButton}>
                 <Ionicons name="close" size={24} color="white" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Edit Profile</Text>
-              <TouchableOpacity 
-                onPress={handleSave} 
-                style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+              <TouchableOpacity
+                onPress={handleSave}
+                style={[
+                  styles.saveButton,
+                  loading && styles.saveButtonDisabled,
+                ]}
                 disabled={loading}
               >
                 {loading ? (
@@ -129,25 +100,24 @@ export const EditProfile = ({ visible, onClose, user }: EditProfileProps) => {
         </LinearGradient>
 
         <View style={styles.content}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
             <Animated.View entering={FadeInDown.delay(100).springify()}>
               <View style={styles.avatarSection}>
-                <TouchableOpacity style={styles.avatarCircle} onPress={handlePickImage}>
-                  {selectedImage || user?.photoURL ? (
-                    <Image 
-                      source={{ uri: selectedImage || user?.photoURL }} 
-                      style={styles.avatarImage} 
+                <View style={styles.avatarCircle}>
+                  {user?.photoURL ? (
+                    <Image
+                      source={{ uri: user.photoURL }}
+                      style={styles.avatarImage}
                     />
                   ) : (
-                    <Text style={styles.avatarText}>{name.charAt(0).toUpperCase() || "U"}</Text>
+                    <Text style={styles.avatarText}>
+                      {name.charAt(0).toUpperCase() || "U"}
+                    </Text>
                   )}
-                  <View style={styles.editAvatarBadge}>
-                    <Ionicons name="camera" size={16} color="white" />
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handlePickImage}>
-                  <Text style={styles.changePhotoText}>Change Profile Photo</Text>
-                </TouchableOpacity>
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
@@ -260,11 +230,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   avatarImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   avatarText: {
     fontSize: 36,

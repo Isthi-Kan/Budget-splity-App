@@ -13,7 +13,7 @@ import {
   StatusBar,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import Animated, {
   FadeInDown,
@@ -48,6 +48,60 @@ export default function GroupDetailScreen() {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+
+  // Helpers to prefer email over UID for display
+  const getBalanceDisplay = (b: Balance) => {
+    const name = b.name || b.displayName || "";
+    const email = b.email || "";
+    if (name && name !== email) return name;
+    if (email) return email.split("@")[0];
+    return b.uid;
+  };
+  const getBalanceInitial = (b: Balance) =>
+    (b.email || b.displayName || b.name || b.uid).charAt(0).toUpperCase();
+  const getPaidByLabel = (uidOrEmail: string) => {
+    const isEmail = uidOrEmail.includes("@") && uidOrEmail.includes(".");
+    if (isEmail) return uidOrEmail;
+    const b = balances.find((x) => x.uid === uidOrEmail);
+    return b ? b.email || b.displayName || b.name || uidOrEmail : uidOrEmail;
+  };
+  const getPaidByName = (uidOrEmail: string) => {
+    const isEmail = uidOrEmail.includes("@") && uidOrEmail.includes(".");
+    const b = balances.find((x) => x.uid === uidOrEmail);
+    const name = b?.name || b?.displayName || "";
+    const email = b?.email || (isEmail ? uidOrEmail : "");
+    if (name && name !== email) return name;
+    if (email) return email.split("@")[0];
+    return uidOrEmail;
+  };
+
+  // Date helpers: safely convert Firestore Timestamp/Date/string/number
+  const toJsDate = (value: any): Date | null => {
+    try {
+      if (!value) return null;
+      if (typeof value?.toDate === "function") return value.toDate();
+      if (value instanceof Date) return value;
+      const d = new Date(value as any);
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  };
+
+  const getExpenseDate = (e: Expense): Date | null => {
+    // Prefer server timestamps; fallback to client-side captured times
+    return (
+      toJsDate((e as any).createdAt) ||
+      toJsDate((e as any).paidAt) ||
+      toJsDate((e as any).updatedAt) ||
+      toJsDate((e as any).createdAtClient) ||
+      toJsDate((e as any).paidAtClient) ||
+      toJsDate((e as any).updatedAtClient) ||
+      null
+    );
+  };
 
   // Floating animation for the header summary balance status
   const summaryFloat = useSharedValue(0);
@@ -133,7 +187,7 @@ export default function GroupDetailScreen() {
           try {
             const userData = await getUserDocument(memberId);
             if (userData) return userData;
-            
+
             const isEmailUid = memberId.includes("@") && memberId.includes(".");
             return {
               uid: memberId,
@@ -144,11 +198,11 @@ export default function GroupDetailScreen() {
             } as User;
           } catch (error) {
             return {
-                uid: memberId,
-                email: "",
-                name: `User ${memberId.substring(0, 8)}`,
-                createdAt: null,
-                lastSeen: null,
+              uid: memberId,
+              email: "",
+              name: `User ${memberId.substring(0, 8)}`,
+              createdAt: null,
+              lastSeen: null,
             } as User;
           }
         })
@@ -161,11 +215,34 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const userBalance = balances.find(b => b.uid === user?.email || b.uid === user?.uid)?.balance || 0;
+  const normalizeEmail = (e?: string | null) => (e || "").trim().toLowerCase();
+  const isCurrentUser = (b: Balance) => {
+    const userUid = (user?.uid || "").trim();
+    const userEmail = normalizeEmail(user?.email);
+    const bUid = (b.uid || "").trim();
+    const bEmail = normalizeEmail(b.email);
+    // Match if:
+    // - Balance uid equals user's real uid
+    // - Balance uid was stored as the user's email
+    // - Balance email equals user's email (case-insensitive)
+    return (
+      bUid === userUid ||
+      bUid === user?.email ||
+      (bEmail && bEmail === userEmail)
+    );
+  };
+  const userBalance = balances
+    .filter(isCurrentUser)
+    .reduce((sum, b) => sum + (b.balance || 0), 0);
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
         <ActivityIndicator size="large" color="#DAA520" />
       </View>
     );
@@ -173,71 +250,77 @@ export default function GroupDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
       <Stack.Screen options={{ headerShown: false }} />
-      
+
       {/* Premium Golden Header */}
       <LinearGradient
         colors={["#B8860B", "#DAA520", "#FFD700"]}
         style={styles.header}
       >
         <View style={styles.headerTop}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/(tabs)/home")}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.replace("/(tabs)/home")}
+          >
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{group?.name}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {group?.name}
+          </Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.headerActionButton} onPress={handleShareInviteCode}>
-                <Ionicons name="share-social-outline" size={20} color="white" />
+            <TouchableOpacity
+              style={styles.headerActionButton}
+              onPress={handleShareInviteCode}
+            >
+              <Ionicons name="share-social-outline" size={20} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerActionButton} onPress={handleShowMembers}>
-                <Ionicons name="people-outline" size={20} color="white" />
+            <TouchableOpacity
+              style={styles.headerActionButton}
+              onPress={handleShowMembers}
+            >
+              <Ionicons name="people-outline" size={20} color="white" />
             </TouchableOpacity>
           </View>
         </View>
 
         <Animated.View style={[styles.summaryCard, animatedSummaryStyle]}>
-            <Text style={styles.summaryLabel}>Your Balance</Text>
-            <Text style={styles.summaryAmount}>Rs {Math.abs(userBalance).toFixed(2)}</Text>
-            <Text style={[styles.summaryStatus, { color: userBalance >= 0 ? "#fff" : "#fee2e2" }]}>
-                {userBalance === 0 ? "You are settled" : userBalance > 0 ? "You get back" : "You owe"}
-            </Text>
+          <Text style={styles.summaryLabel}>Your Balance</Text>
+          <Text style={styles.summaryAmount}>
+            Rs {Math.abs(userBalance).toFixed(2)}
+          </Text>
+          <Text
+            style={[
+              styles.summaryStatus,
+              { color: userBalance >= 0 ? "#fff" : "#fee2e2" },
+            ]}
+          >
+            {userBalance === 0
+              ? "You are settled"
+              : userBalance > 0
+              ? "You get back"
+              : "You owe"}
+          </Text>
         </Animated.View>
       </LinearGradient>
 
       {/* White Content Sheet */}
       <View style={styles.contentSheet}>
-        <ScrollView 
+        <ScrollView
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#DAA520" />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#DAA520"
+            />
+          }
         >
-          {/* Members Subsection */}
-          <Animated.View entering={FadeInDown.delay(200).springify()}>
-            <View style={styles.sectionTitleContainer}>
-              <Text style={styles.sectionTitle}>Group Members</Text>
-              <TouchableOpacity onPress={() => router.push(`/group-summary?groupId=${id}` as any)}>
-                <Text style={styles.seeAllText}>Summary</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              contentContainerStyle={styles.memberScroll}
-            >
-              {balances.map((item, index) => (
-                <View key={item.uid} style={styles.memberCard}>
-                  <View style={styles.memberAvatar}>
-                    <Text style={styles.memberInitials}>{item.uid.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <Text style={styles.memberName} numberOfLines={1}>{item.uid.split('@')[0]}</Text>
-                  <Text style={[styles.memberBalance, { color: item.balance >= 0 ? "#059669" : "#dc2626" }]}>
-                    {item.balance === 0 ? "Settled" : `${item.balance > 0 ? "+" : "-"}Rs ${Math.abs(item.balance).toFixed(2)}`}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
-          </Animated.View>
+          {/* Members Subsection (removed summary button; moved to bottom) */}
 
           {/* Activity Subsection */}
           <Animated.View entering={FadeInDown.delay(400).springify()}>
@@ -251,29 +334,60 @@ export default function GroupDetailScreen() {
                   <Ionicons name="receipt-outline" size={40} color="#cbd5e1" />
                 </View>
                 <Text style={styles.emptyTitle}>No expenses yet</Text>
-                <Text style={styles.emptyText}>Tap the + button to add your first expense for this group.</Text>
+                <Text style={styles.emptyText}>
+                  Tap the + button to add your first expense for this group.
+                </Text>
               </View>
             ) : (
               <View style={styles.expenseList}>
                 {expenses.map((item, index) => (
-                  <TouchableOpacity 
-                    key={item.id} 
+                  <TouchableOpacity
+                    key={item.id}
                     style={styles.expenseCard}
                     activeOpacity={0.7}
                     onPress={() => {
-                        Alert.alert(item.title, `Paid by ${item.paidBy}\nTotal: Rs ${item.amount.toFixed(2)}\nDate: ${new Date(item.createdAt).toLocaleDateString()}`);
+                      setSelectedExpense(item);
+                      setShowExpenseModal(true);
                     }}
                   >
                     <View style={styles.expenseIconContainer}>
                       <Ionicons name="cash-outline" size={24} color="#DAA520" />
                     </View>
                     <View style={styles.expenseInfo}>
-                      <Text style={styles.expenseTitle} numberOfLines={1}>{item.title}</Text>
-                      <Text style={styles.expenseMeta}>Paid by {item.paidBy.split('@')[0]}</Text>
+                      <Text style={styles.expenseTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      {(() => {
+                        const nameLine = getPaidByName(item.paidBy);
+                        const emailLine = getPaidByLabel(item.paidBy);
+                        const showEmail = emailLine && nameLine !== emailLine;
+                        return (
+                          <>
+                            <Text style={styles.expenseMeta} numberOfLines={1}>
+                              Paid by {nameLine}
+                            </Text>
+                            {showEmail && (
+                              <Text
+                                style={styles.expenseMeta}
+                                numberOfLines={1}
+                              >
+                                {emailLine}
+                              </Text>
+                            )}
+                          </>
+                        );
+                      })()}
                     </View>
                     <View style={styles.expenseAmountContainer}>
-                      <Text style={styles.expenseAmount}>Rs {item.amount.toFixed(2)}</Text>
-                      <Text style={styles.expenseDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                      <Text style={styles.expenseAmount}>
+                        Rs {item.amount.toFixed(2)}
+                      </Text>
+                      <Text style={styles.expenseDate}>
+                        {(() => {
+                          const d = getExpenseDate(item);
+                          return d ? d.toLocaleDateString() : "—";
+                        })()}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -285,8 +399,23 @@ export default function GroupDetailScreen() {
 
       {/* Premium FAB */}
       <Animated.View entering={FadeInUp.delay(600).springify()}>
-        <TouchableOpacity style={styles.fab} onPress={handleAddExpense} activeOpacity={0.8}>
-           <Ionicons name="add" size={32} color="white" />
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={handleAddExpense}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={28} color="#DAA520" />
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Summary FAB (bottom-left) */}
+      <Animated.View entering={FadeInUp.delay(600).springify()}>
+        <TouchableOpacity
+          style={styles.summaryFab}
+          onPress={() => router.push(`/group-summary?groupId=${id}` as any)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="stats-chart-outline" size={28} color="#DAA520" />
         </TouchableOpacity>
       </Animated.View>
 
@@ -300,14 +429,23 @@ export default function GroupDetailScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Group Members</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setShowMembersModal(false)}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowMembersModal(false)}
+            >
               <Ionicons name="close" size={24} color="#64748b" />
             </TouchableOpacity>
           </View>
 
           {loadingMembers ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator color="#DAA520" />
+            <View
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <ActivityIndicator color="#DAA520" />
             </View>
           ) : (
             <FlatList
@@ -316,24 +454,120 @@ export default function GroupDetailScreen() {
               contentContainerStyle={styles.membersList}
               renderItem={({ item }) => (
                 <View style={styles.memberListCard}>
-                   <View style={[styles.memberAvatar, { width: 44, height: 44, marginBottom: 0, marginRight: 16 }]}>
-                     <Text style={[styles.memberInitials, { fontSize: 16 }]}>
-                        {(item.name || item.email || "?").charAt(0).toUpperCase()}
-                     </Text>
-                   </View>
-                   <View style={styles.memberListInfo}>
-                     <Text style={styles.memberListName}>{item.name || "Splitify User"}</Text>
-                     <Text style={styles.memberListEmail}>{item.email}</Text>
-                   </View>
-                   {item.uid === group?.hostId && (
-                     <View style={styles.hostBadge}>
-                        <Text style={styles.hostBadgeText}>Host</Text>
-                     </View>
-                   )}
+                  <View
+                    style={[
+                      styles.memberAvatar,
+                      {
+                        width: 44,
+                        height: 44,
+                        marginBottom: 0,
+                        marginRight: 16,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.memberInitials, { fontSize: 16 }]}>
+                      {(item.name || item.email || "?").charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.memberListInfo}>
+                    <Text style={styles.memberListName}>
+                      {item.name || "Splitify User"}
+                    </Text>
+                    {!!item.email && item.email !== item.name && (
+                      <Text style={styles.memberListEmail}>{item.email}</Text>
+                    )}
+                  </View>
+                  {item.uid === group?.hostId && (
+                    <View style={styles.hostBadge}>
+                      <Text style={styles.hostBadgeText}>Host</Text>
+                    </View>
+                  )}
                 </View>
               )}
             />
           )}
+        </View>
+      </Modal>
+
+      {/* Expense Detail Popup */}
+      <Modal
+        visible={showExpenseModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowExpenseModal(false)}
+      >
+        <View style={styles.detailModalBackdrop}>
+          <View style={styles.detailModalCard}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Text style={styles.detailTitle} numberOfLines={1}>
+                {selectedExpense?.title || "Expense"}
+              </Text>
+              <TouchableOpacity
+                style={styles.detailCloseBtn}
+                onPress={() => setShowExpenseModal(false)}
+              >
+                <Ionicons name="close" size={18} color="#0f172a" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedExpense && (
+              <View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Amount</Text>
+                  <Text style={styles.detailValue}>
+                    Rs {selectedExpense.amount.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Category</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedExpense.category || "Other"}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Paid By</Text>
+                  <Text style={styles.detailValue}>
+                    {getPaidByName(selectedExpense.paidBy)}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Email</Text>
+                  <Text style={styles.detailValue}>
+                    {getPaidByLabel(selectedExpense.paidBy)}
+                  </Text>
+                </View>
+                {!!selectedExpense.description && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>For</Text>
+                    <Text style={styles.detailValue} numberOfLines={2}>
+                      {selectedExpense.description}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Notes</Text>
+                  <Text style={styles.detailValue} numberOfLines={2}>
+                    {selectedExpense.note || "—"}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Date</Text>
+                  <Text style={styles.detailValue}>
+                    {(() => {
+                      const d = getExpenseDate(selectedExpense);
+                      return d ? d.toLocaleString() : "—";
+                    })()}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
         </View>
       </Modal>
     </View>
