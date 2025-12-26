@@ -65,25 +65,14 @@ export const HelpSupport = ({ visible, onClose }: HelpSupportProps) => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
+            <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.logoSection}>
+                            <View style={styles.logoCircle}>
+                                <Ionicons name="diamond" size={48} color="#DAA520" />
+                            </View>
+                            <Text style={styles.appName}>SPLITIFY</Text>
+                            <Text style={styles.appTagline}>Premium Expense Sharing</Text>
+                        </Animated.View>
             <Animated.View entering={FadeInDown.delay(100).springify()}>
-              <View style={styles.supportCard}>
-                <Ionicons
-                  name="chatbubbles-outline"
-                  size={32}
-                  color="#DAA520"
-                />
-                <Text style={styles.supportCardTitle}>Need more help?</Text>
-                <Text style={styles.supportCardDesc}>
-                  Our team is available 24/7 to assist you.
-                </Text>
-                <TouchableOpacity style={styles.contactButton}>
-                  <Text style={styles.contactButtonText}>Contact Support</Text>
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.sectionHeader}>
-                Frequently Asked Questions
-              </Text>
               {faqs.map((faq, index) => (
                 <View key={index} style={styles.faqItem}>
                   <Text style={styles.faqQuestion}>{faq.q}</Text>
@@ -137,6 +126,37 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingBottom: 40,
+  },
+  logoSection: {
+    alignItems: "center",
+    marginVertical: 40,
+  },
+  logoCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 30,
+    backgroundColor: "#fffbeb",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#DAA520",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 10,
+    transform: [{ rotate: '45deg' }],
+  },
+  appName: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#DAA520",
+    marginTop: 30,
+    letterSpacing: 2,
+  },
+  appTagline: {
+    fontSize: 14,
+    color: "#94a3b8",
+    fontWeight: "600",
+    marginTop: 4,
   },
   supportCard: {
     backgroundColor: "#fffbeb",

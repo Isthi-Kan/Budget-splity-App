@@ -11,12 +11,9 @@ import {
   StatusBar,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import Animated, {
-  FadeInDown,
-  FadeInUp,
-} from "react-native-reanimated";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import InputModal from "../../../components/InputModal";
 import { joinGroupByInviteCode } from "../../../services/firebase/groups";
 import { useApp } from "../../../store";
@@ -50,7 +47,11 @@ const ProfileCircle = ({
   };
 
   return (
-    <TouchableOpacity style={styles.profileCircle} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.profileCircle}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <Text style={styles.profileInitials}>{getInitials(user)}</Text>
     </TouchableOpacity>
   );
@@ -60,7 +61,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { state, dispatch } = useApp();
   const { user, groups, isLoading: isGlobalLoading } = state;
-  
+
   const [refreshing, setRefreshing] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -68,8 +69,18 @@ export default function HomeScreen() {
 
   const loadGroups = async (forceRefresh = false) => {
     if (!user) return;
-    await fetchGroupsAction(dispatch, user.uid, forceRefresh);
-    setRefreshing(false);
+    // Show a small loader on initial load (not pull-to-refresh)
+    if (!forceRefresh) {
+      dispatch({ type: "SET_LOADING", payload: true });
+    }
+    try {
+      await fetchGroupsAction(dispatch, user.uid, forceRefresh);
+    } finally {
+      if (!forceRefresh) {
+        dispatch({ type: "SET_LOADING", payload: false });
+      }
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -127,7 +138,8 @@ export default function HomeScreen() {
               {item.name || "Unnamed Group"}
             </Text>
             <Text style={styles.memberCount}>
-              {item.members?.length || 0} {item.members?.length === 1 ? 'member' : 'members'}
+              {item.members?.length || 0}{" "}
+              {item.members?.length === 1 ? "member" : "members"}
             </Text>
           </View>
           <View style={styles.groupArrow}>
@@ -145,7 +157,8 @@ export default function HomeScreen() {
       </View>
       <Text style={styles.emptyTitle}>No groups yet</Text>
       <Text style={styles.emptyText}>
-        Create your first group or join one with an invite code to start splitting expenses!
+        Create your first group or join one with an invite code to start
+        splitting expenses!
       </Text>
     </Animated.View>
   );
@@ -153,32 +166,38 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
+
       {/* Golden Header Background */}
       <LinearGradient
         colors={["#B8860B", "#DAA520", "#FFD700"]}
         style={styles.header}
       >
-        <Animated.View entering={FadeInUp.delay(100).springify()} style={styles.headerContent}>
+        <Animated.View
+          entering={FadeInUp.delay(100).springify()}
+          style={styles.headerContent}
+        >
           <View style={styles.welcomeSection}>
             <Text style={styles.title}>S P I L T I F Y</Text>
             <Text style={styles.subtitle}>
               Hello, {user?.name?.split(" ")[0] || "User"}
             </Text>
           </View>
-          <ProfileCircle user={user} onPress={() => setShowProfileModal(true)} />
+          <ProfileCircle
+            user={user}
+            onPress={() => setShowProfileModal(true)}
+          />
         </Animated.View>
       </LinearGradient>
 
       {/* Main Content Sheet */}
       <View style={styles.contentSheet}>
         <View style={styles.listHeader}>
-             <Text style={styles.sectionTitle}>Groups List</Text>
-             {groups.length > 0 && (
-               <TouchableOpacity onPress={handleRefresh}>
-                 <Ionicons name="refresh" size={20} color="#64748b" />
-               </TouchableOpacity>
-             )}
+          <Text style={styles.sectionTitle}>Groups List</Text>
+          {groups.length > 0 && (
+            <TouchableOpacity onPress={handleRefresh}>
+              <Ionicons name="refresh" size={20} color="#64748b" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {isGlobalLoading && groups.length === 0 ? (
@@ -192,24 +211,29 @@ export default function HomeScreen() {
             renderItem={renderGroupItem}
             ListEmptyComponent={renderEmptyState}
             refreshControl={
-              <RefreshControl 
-                refreshing={refreshing} 
-                onRefresh={handleRefresh} 
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
                 tintColor="#DAA520"
                 colors={["#DAA520"]}
               />
             }
             style={styles.groupsList}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={
-              [groups.length === 0 ? styles.emptyListContainer : { paddingBottom: 100 }]
-            }
+            contentContainerStyle={[
+              groups.length === 0
+                ? styles.emptyListContainer
+                : { paddingBottom: 100 },
+            ]}
           />
         )}
       </View>
 
       {/* Bottom Action Bar */}
-      <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.actionButtons}>
+      <Animated.View
+        entering={FadeInDown.delay(300).springify()}
+        style={styles.actionButtons}
+      >
         <TouchableOpacity
           style={styles.joinButton}
           onPress={() => setShowJoinModal(true)}

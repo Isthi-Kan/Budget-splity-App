@@ -195,7 +195,7 @@ export const styles = StyleSheet.create({
     joinButtonText: {
         fontSize: 16,
         fontWeight: "700",
-        color: "#64748b",
+        color: "#DAA520",
     },
     createButton: {
         flex: 1,

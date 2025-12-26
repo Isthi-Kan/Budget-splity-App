@@ -52,6 +52,7 @@ export default function InputModal({
       visible={visible}
       transparent={true}
       animationType="fade"
+      statusBarTranslucent
       onRequestClose={handleCancel}
     >
       <View style={styles.overlay}>

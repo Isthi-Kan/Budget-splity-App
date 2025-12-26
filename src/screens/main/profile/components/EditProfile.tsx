@@ -32,7 +32,6 @@ interface EditProfileProps {
 export const EditProfile = ({ visible, onClose, user }: EditProfileProps) => {
   const { dispatch } = useApp();
   const [name, setName] = useState(user?.name || "");
-  const [bio, setBio] = useState(user?.bio || "");
   const [loading, setLoading] = useState(false);
   // Photo upload removed
 
@@ -48,7 +47,6 @@ export const EditProfile = ({ visible, onClose, user }: EditProfileProps) => {
       // Update Profile (without photo upload)
       const success = await updateProfileAction(dispatch, user.uid, {
         name: name.trim(),
-        bio: bio.trim(),
       });
 
       if (success) {
@@ -141,18 +139,7 @@ export const EditProfile = ({ visible, onClose, user }: EditProfileProps) => {
                 <Text style={styles.inputNote}>Email cannot be changed.</Text>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Bio</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={bio}
-                  onChangeText={setBio}
-                  placeholder="Tell us something about yourself"
-                  placeholderTextColor="#94a3b8"
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
+              {/* Bio removed as requested */}
             </Animated.View>
           </ScrollView>
         </View>

@@ -29,14 +29,14 @@ import { styles } from "./styles";
 export default function SignupScreen() {
   const router = useRouter();
   const { state, dispatch } = useApp();
-  
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
-  
+
   const [errors, setErrors] = useState({
     name: "",
     email: "",
@@ -60,9 +60,9 @@ export default function SignupScreen() {
       true
     );
 
-    dispatch({ type: 'SET_ERROR', payload: null });
+    dispatch({ type: "SET_ERROR", payload: null });
     return () => {
-      dispatch({ type: 'SET_ERROR', payload: null });
+      dispatch({ type: "SET_ERROR", payload: null });
     };
   }, []);
 
@@ -138,20 +138,24 @@ export default function SignupScreen() {
       setErrors({ ...errors, [field]: "" });
     }
     if (state.error) {
-      dispatch({ type: 'SET_ERROR', payload: null });
+      dispatch({ type: "SET_ERROR", payload: null });
     }
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent} 
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
@@ -160,18 +164,20 @@ export default function SignupScreen() {
             colors={["#B8860B", "#DAA520", "#FFD700"]}
             style={styles.header}
           >
-            <Animated.View 
-              entering={FadeInUp.delay(200).springify()}
-              style={[styles.iconComposition, animatedIconStyle]}
+            <Animated.View
+              entering={FadeInUp.delay(400).springify()}
+              style={styles.imageContainer}
             >
-              <View style={styles.glassCircle}>
-                <Ionicons name="paper-plane" size={40} color="white" />
-              </View>
-            </Animated.View>
-            
-            <Animated.View entering={FadeInUp.delay(300).springify()} style={{ alignItems: 'center' }}>
-              <Text style={styles.headerTitle}>S P I L T I F Y</Text>
-              <Text style={styles.headerSubtitle}>Financial Clarity. Together.</Text>
+              <Animated.View
+                entering={FadeInDown.delay(100).springify()}
+                style={styles.logoSection}
+              >
+                <View style={styles.logoCircle}>
+                  <Ionicons name="diamond" size={46} color="#DAA520" />
+                </View>
+                <Text style={styles.appName}>SPLITIFY</Text>
+                <Text style={styles.appTagline}>Premium Expense Sharing</Text>
+              </Animated.View>
             </Animated.View>
           </LinearGradient>
 
@@ -179,13 +185,25 @@ export default function SignupScreen() {
           <View style={styles.contentSheet}>
             <Animated.View entering={FadeInDown.delay(500).springify()}>
               <Text style={styles.welcomeText}>Create Account</Text>
-              <Text style={styles.instructionText}>Start splitting expenses easily today</Text>
+              <Text style={styles.instructionText}>
+                Start splitting expenses easily today
+              </Text>
 
               {/* Name Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Full Name</Text>
-                <View style={[styles.inputWrapper, errors.name ? styles.inputWrapperError : null]}>
-                  <Ionicons name="person-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    errors.name ? styles.inputWrapperError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color="#94a3b8"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="John Doe"
@@ -194,14 +212,26 @@ export default function SignupScreen() {
                     onChangeText={(text) => updateField("name", text)}
                   />
                 </View>
-                {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
+                {errors.name ? (
+                  <Text style={styles.errorText}>{errors.name}</Text>
+                ) : null}
               </View>
 
               {/* Email Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email Address</Text>
-                <View style={[styles.inputWrapper, errors.email ? styles.inputWrapperError : null]}>
-                  <Ionicons name="mail-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    errors.email ? styles.inputWrapperError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color="#94a3b8"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="name@example.com"
@@ -212,14 +242,26 @@ export default function SignupScreen() {
                     autoCapitalize="none"
                   />
                 </View>
-                {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+                {errors.email ? (
+                  <Text style={styles.errorText}>{errors.email}</Text>
+                ) : null}
               </View>
 
               {/* Password Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password</Text>
-                <View style={[styles.inputWrapper, errors.password ? styles.inputWrapperError : null]}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    errors.password ? styles.inputWrapperError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color="#94a3b8"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Create a password"
@@ -228,49 +270,81 @@ export default function SignupScreen() {
                     value={formData.password}
                     onChangeText={(text) => updateField("password", text)}
                   />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
                     style={styles.eyeIcon}
                   >
-                    <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#94a3b8" />
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#94a3b8"
+                    />
                   </TouchableOpacity>
                 </View>
-                {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+                {errors.password ? (
+                  <Text style={styles.errorText}>{errors.password}</Text>
+                ) : null}
               </View>
 
               {/* Confirm Password Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Confirm Password</Text>
-                <View style={[styles.inputWrapper, errors.confirmPassword ? styles.inputWrapperError : null]}>
-                  <Ionicons name="checkmark-circle-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    errors.confirmPassword ? styles.inputWrapperError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={20}
+                    color="#94a3b8"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Repeat your password"
                     placeholderTextColor="#94a3b8"
                     secureTextEntry={!showConfirmPassword}
                     value={formData.confirmPassword}
-                    onChangeText={(text) => updateField("confirmPassword", text)}
+                    onChangeText={(text) =>
+                      updateField("confirmPassword", text)
+                    }
                   />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                     style={styles.eyeIcon}
                   >
-                    <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#94a3b8" />
+                    <Ionicons
+                      name={
+                        showConfirmPassword ? "eye-off-outline" : "eye-outline"
+                      }
+                      size={20}
+                      color="#94a3b8"
+                    />
                   </TouchableOpacity>
                 </View>
-                {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
+                {errors.confirmPassword ? (
+                  <Text style={styles.errorText}>{errors.confirmPassword}</Text>
+                ) : null}
               </View>
 
               {/* General Error */}
               {state.error ? (
-                <Animated.View entering={FadeInDown} style={styles.generalErrorContainer}>
+                <Animated.View
+                  entering={FadeInDown}
+                  style={styles.generalErrorContainer}
+                >
                   <Text style={styles.generalErrorText}>{state.error}</Text>
                 </Animated.View>
               ) : null}
 
               {/* Signup Button */}
               <TouchableOpacity
-                style={[styles.signupButton, state.isLoading && styles.signupButtonDisabled]}
+                style={[
+                  styles.signupButton,
+                  state.isLoading && styles.signupButtonDisabled,
+                ]}
                 onPress={signup}
                 disabled={state.isLoading}
                 activeOpacity={0.8}

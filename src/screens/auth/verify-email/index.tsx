@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { reload, sendEmailVerification } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -119,16 +120,22 @@ export default function VerifyEmailScreen() {
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
-  // Automatic Polling for Verification
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      if (!user?.emailVerified) {
+  // Check verification only while this screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      const interval = setInterval(() => {
+        if (auth.currentUser?.emailVerified) {
+          clearInterval(interval);
+          return;
+        }
         checkVerificationAction(dispatch);
-      }
-    }, 3000);
+      }, 5000);
 
-    return () => clearInterval(pollInterval);
-  }, [user?.emailVerified]);
+      return () => {
+        clearInterval(interval);
+      };
+    }, [dispatch])
+  );
 
   const handleSendVerificationEmail = async () => {
     if (resendCooldown > 0) return;
@@ -174,20 +181,19 @@ export default function VerifyEmailScreen() {
         style={styles.header}
       >
         <Animated.View
-          entering={FadeInUp.delay(200).springify()}
-          style={[styles.iconComposition, animatedIconStyle]}
+          entering={FadeInUp.delay(400).springify()}
+          style={styles.imageContainer}
         >
-          <View style={styles.glassCircle}>
-            <Ionicons name="mail-open" size={42} color="white" />
-          </View>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInUp.delay(300).springify()}
-          style={{ alignItems: "center" }}
-        >
-          <Text style={styles.headerTitle}>S P I L T I F Y</Text>
-          <Text style={styles.headerSubtitle}>Confirm Your Identity</Text>
+          <Animated.View
+            entering={FadeInDown.delay(100).springify()}
+            style={styles.logoSection}
+          >
+            <View style={styles.logoCircle}>
+              <Ionicons name="diamond" size={48} color="#DAA520" />
+            </View>
+            <Text style={styles.appName}>SPLITIFY</Text>
+            <Text style={styles.appTagline}>Premium Expense Sharing</Text>
+          </Animated.View>
         </Animated.View>
       </LinearGradient>
 

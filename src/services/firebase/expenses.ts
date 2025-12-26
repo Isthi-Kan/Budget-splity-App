@@ -882,13 +882,24 @@ export const getExpensesByDateRange = async (
 /**
  * Settlement persistence helpers
  */
-const settlementIdFor = (groupId: string, from: string, to: string, amount: number): string => {
+const settlementIdFor = (
+  groupId: string,
+  from: string,
+  to: string,
+  amount: number,
+  version?: number
+): string => {
   const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const cents = Math.round((amount || 0) * 100);
-  return `${groupId}__${norm(from)}__${norm(to)}__${cents}`;
+  const v = typeof version === 'number' && isFinite(version) ? version : 0;
+  return `${groupId}__v${v}__${norm(from)}__${norm(to)}__${cents}`;
 };
 
-const mergeSettlementStatuses = async (groupId: string, suggestions: Settlement[]): Promise<Settlement[]> => {
+const mergeSettlementStatuses = async (
+  groupId: string,
+  suggestions: Settlement[],
+  version?: number
+): Promise<Settlement[]> => {
   try {
     const coll = collection(db, 'settlements', groupId, 'settlements');
     const snap = await getDocs(coll);
@@ -897,7 +908,7 @@ const mergeSettlementStatuses = async (groupId: string, suggestions: Settlement[
 
     const results: Settlement[] = [];
     for (const s of suggestions) {
-      const id = settlementIdFor(groupId, s.fromUser, s.toUser, s.amount);
+      const id = settlementIdFor(groupId, s.fromUser, s.toUser, s.amount, version);
       const persisted = existing.get(id);
       if (persisted) {
         results.push({
@@ -938,9 +949,10 @@ export const confirmSettlement = async (
   fromUser: string,
   toUser: string,
   amount: number,
-  confirmer: string
+  confirmer: string,
+  options?: { id?: string; version?: number }
 ): Promise<void> => {
-  const id = settlementIdFor(groupId, fromUser, toUser, amount);
+  const id = (options && options.id) || settlementIdFor(groupId, fromUser, toUser, amount, options?.version);
   const ref = doc(db, 'settlements', groupId, 'settlements', id);
   const snap = await getDoc(ref);
   const norm = (s: string) => (s || '').toLowerCase();
