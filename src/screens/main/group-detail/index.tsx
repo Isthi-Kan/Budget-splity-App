@@ -138,7 +138,15 @@ export default function GroupDetailScreen() {
 
       setGroup(groupData);
       const groupExpenses = await getGroupExpenses(id);
-      setExpenses(groupExpenses);
+      // Ensure newest-first ordering using robust date fallback
+      const sortedExpenses = [...groupExpenses].sort((a, b) => {
+        const da = getExpenseDate(a);
+        const db = getExpenseDate(b);
+        const ta = da ? da.getTime() : 0;
+        const tb = db ? db.getTime() : 0;
+        return tb - ta; // newest first
+      });
+      setExpenses(sortedExpenses);
 
       const summary = await calculateGroupSummary(id);
       setBalances(summary.balances);
@@ -284,8 +292,7 @@ export default function GroupDetailScreen() {
           </View>
         </View>
 
-        <Animated.View style={[styles.summaryCard, animatedSummaryStyle]}>
-          <Text style={styles.summaryLabel}>Your Balance</Text>
+        <Animated.View style={[styles.summaryCard]}>
           <Text style={styles.summaryAmount}>
             Rs {Math.abs(userBalance).toFixed(2)}
           </Text>

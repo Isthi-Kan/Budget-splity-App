@@ -37,11 +37,12 @@ export const styles = StyleSheet.create({
         marginLeft: 16,
     },
     headerSubtitle: {
-        fontSize: 14,
-        color: "rgba(255, 255, 255, 0.9)",
-        fontWeight: "600",
-        marginHorizontal: 24,
-        marginTop: 4,
+    fontSize: 24,
+    color: "rgba(255, 255, 255, 0.9)",
+    fontWeight: "600",
+    marginHorizontal: 24,
+    marginTop: 20,
+    textAlign: "center",
     },
     tabsContainer: {
         backgroundColor: "white",

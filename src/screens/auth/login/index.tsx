@@ -48,9 +48,9 @@ export default function LoginScreen() {
       true
     );
 
-    dispatch({ type: 'SET_ERROR', payload: null });
+    dispatch({ type: "SET_ERROR", payload: null });
     return () => {
-      dispatch({ type: 'SET_ERROR', payload: null });
+      dispatch({ type: "SET_ERROR", payload: null });
     };
   }, []);
 
@@ -114,7 +114,11 @@ export default function LoginScreen() {
     }
   };
 
-  const handleInputChange = (setter: (val: string) => void, value: string, field: string) => {
+  const handleInputChange = (
+    setter: (val: string) => void,
+    value: string,
+    field: string
+  ) => {
     setter(value);
     if (errors[field as keyof typeof errors]) {
       setErrors({ ...errors, [field]: "" });
@@ -123,14 +127,18 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent} 
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
@@ -139,18 +147,20 @@ export default function LoginScreen() {
             colors={["#B8860B", "#DAA520", "#FFD700"]}
             style={styles.header}
           >
-            <Animated.View 
-              entering={FadeInUp.delay(200).springify()}
-              style={[styles.iconComposition, animatedIconStyle]}
+            <Animated.View
+              entering={FadeInUp.delay(400).springify()}
+              style={styles.imageContainer}
             >
-              <View style={styles.glassCircle}>
-                <Ionicons name="paper-plane" size={42} color="white" />
-              </View>
-            </Animated.View>
-            
-            <Animated.View entering={FadeInUp.delay(300).springify()} style={{ alignItems: 'center' }}>
-              <Text style={styles.headerTitle}>S P I L T I F Y</Text>
-              <Text style={styles.headerSubtitle}>Access Your Wealth Tracker</Text>
+              <Animated.View
+                entering={FadeInDown.delay(100).springify()}
+                style={styles.logoSection}
+              >
+                <View style={styles.logoCircle}>
+                  <Ionicons name="diamond" size={48} color="#DAA520" />
+                </View>
+                <Text style={styles.appName}>SPLITIFY</Text>
+                <Text style={styles.appTagline}>Premium Expense Sharing</Text>
+              </Animated.View>
             </Animated.View>
           </LinearGradient>
 
@@ -158,59 +168,99 @@ export default function LoginScreen() {
           <View style={styles.contentSheet}>
             <Animated.View entering={FadeInDown.delay(500).springify()}>
               <Text style={styles.welcomeText}>Welcome Back!</Text>
-              <Text style={styles.instructionText}>Securely sign in to your accounts</Text>
+              <Text style={styles.instructionText}>
+                Securely sign in to your accounts
+              </Text>
 
               {/* Email Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email Address</Text>
-                <View style={[styles.inputWrapper, errors.email ? styles.inputWrapperError : null]}>
-                  <Ionicons name="mail-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    errors.email ? styles.inputWrapperError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color="#94a3b8"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="name@example.com"
                     placeholderTextColor="#94a3b8"
                     value={email}
-                    onChangeText={(text) => handleInputChange(setEmail, text, 'email')}
+                    onChangeText={(text) =>
+                      handleInputChange(setEmail, text, "email")
+                    }
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
                 </View>
-                {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+                {errors.email ? (
+                  <Text style={styles.errorText}>{errors.email}</Text>
+                ) : null}
               </View>
 
               {/* Password Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password</Text>
-                <View style={[styles.inputWrapper, errors.password ? styles.inputWrapperError : null]}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    errors.password ? styles.inputWrapperError : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color="#94a3b8"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your password"
                     placeholderTextColor="#94a3b8"
                     secureTextEntry={!showPassword}
                     value={password}
-                    onChangeText={(text) => handleInputChange(setPassword, text, 'password')}
+                    onChangeText={(text) =>
+                      handleInputChange(setPassword, text, "password")
+                    }
                   />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
                     style={styles.eyeIcon}
                   >
-                    <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#94a3b8" />
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#94a3b8"
+                    />
                   </TouchableOpacity>
                 </View>
-                {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+                {errors.password ? (
+                  <Text style={styles.errorText}>{errors.password}</Text>
+                ) : null}
               </View>
 
               {/* General Error */}
               {state.error ? (
-                <Animated.View entering={FadeInDown} style={styles.generalErrorContainer}>
+                <Animated.View
+                  entering={FadeInDown}
+                  style={styles.generalErrorContainer}
+                >
                   <Text style={styles.generalErrorText}>{state.error}</Text>
                 </Animated.View>
               ) : null}
 
               {/* Login Button */}
               <TouchableOpacity
-                style={[styles.loginButton, state.isLoading && styles.loginButtonDisabled]}
+                style={[
+                  styles.loginButton,
+                  state.isLoading && styles.loginButtonDisabled,
+                ]}
                 onPress={login}
                 disabled={state.isLoading}
                 activeOpacity={0.8}

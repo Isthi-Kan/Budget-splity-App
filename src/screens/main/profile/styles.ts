@@ -13,6 +13,14 @@ export const styles = StyleSheet.create({
         alignItems: "center",
         paddingTop: Platform.OS === "ios" ? 40 : 20,
     },
+    backButton: {
+        position: "absolute",
+        top: Platform.OS === "ios" ? 50 : 30,
+        left: 16,
+        backgroundColor: "rgba(255,255,255,0.18)",
+        borderRadius: 20,
+        padding: 8,
+    },
     profileImageContainer: {
         width: 100,
         height: 100,

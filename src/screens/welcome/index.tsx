@@ -2,17 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  Image,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import Animated, {
-  FadeInDown,
-  FadeInUp,
-} from "react-native-reanimated";
+import { Image, StatusBar, Text, TouchableOpacity, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { styles } from "./styles";
 
 export default function WelcomeScreen() {
@@ -33,32 +24,31 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+
       {/* Golden Header Section */}
       <LinearGradient
         colors={["#B8860B", "#DAA520", "#FFD700"]}
         style={styles.header}
       >
         <Animated.View
-          entering={FadeInUp.delay(200).springify()}
-          style={styles.logoContainer}
-        >
-          <View style={styles.iconCircle}>
-            <Ionicons name="paper-plane" size={32} color="#DAA520" />
-          </View>
-          <Text style={styles.appName}>SPLITIFY</Text>
-        </Animated.View>
-
-        <Animated.View
           entering={FadeInUp.delay(400).springify()}
           style={styles.imageContainer}
         >
-          <Image
-            source={require("../../../assets/images/split_money.png")}
-            style={styles.heroImage}
-            resizeMode="contain"
-          />
+          <Animated.View
+            entering={FadeInDown.delay(100).springify()}
+            style={styles.logoSection}
+          >
+            <View style={styles.logoCircle}>
+              <Ionicons name="diamond" size={48} color="#DAA520" />
+            </View>
+            <Text style={styles.appName}>SPLITIFY</Text>
+            <Text style={styles.appTagline}>Premium Expense Sharing</Text>
+          </Animated.View>
         </Animated.View>
       </LinearGradient>
 
@@ -103,7 +93,7 @@ export default function WelcomeScreen() {
               >
                 <Text style={styles.signupText}>Create Account</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={styles.loginButton}
                 onPress={handleLogin}
